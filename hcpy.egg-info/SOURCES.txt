@@ -1,8 +1,0 @@
-setup.py
-hcpy/__init__.py
-hcpy.egg-info/PKG-INFO
-hcpy.egg-info/SOURCES.txt
-hcpy.egg-info/dependency_links.txt
-hcpy.egg-info/requires.txt
-hcpy.egg-info/top_level.txt
-hcpy/config/__init__.py
