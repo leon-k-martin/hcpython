@@ -626,8 +626,8 @@ rule bet_hifi_b0:
 
 rule qc2:
     input:
-        nodif_brain=rule.bet_hifi_b0.output.nodif_brain,
-        nodif_brain_mask=rule.bet_hifi_b0.output.nodif_brain.replace(
+        nodif_brain=rules.bet_hifi_b0.output.nodif_brain,
+        nodif_brain_mask=rules.bet_hifi_b0.output.nodif_brain.replace(
             ".nii.gz", "_mask.nii.gz"
         ),
     output:
