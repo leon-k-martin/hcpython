@@ -942,6 +942,8 @@ rule epi_reg_dof:
         basepath=join(outdir_T1w, "nodif2T1w_initII"),
     group:
         "DiffusionToStructural"
+    container:
+        config["containers"]["qunex"]
     run:
         # TODO: write out EPI_REG_DOF into workflow
         shell(
@@ -1214,6 +1216,8 @@ rule rotate_bvecs_to_struct:
         log=join(logdir, "rotate_bvecs_to_struct.done"),
     group:
         "DiffusionToStructural"
+    container:
+        config["containers"]["qunex"]
     run:
         shell(
             f"$HCPPIPEDIR/global/scripts/Rotate_bvecs.sh {input.bvecs} {input.mat} {output.bvec_struct}"
