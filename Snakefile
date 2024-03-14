@@ -579,71 +579,71 @@ rule qc1:
 ################################
 # run topup                    #
 ################################
-# rule topup:
-#     """
-#     Runs topup to estimate susceptibility-induced distortions.
-#     """
-#     input:
-#         b0_posneg=f_b0_posneg,
-#         acqparams=f_acqparams_topup,
-#         topup_conf=topup_conf,
-#     output:
-#         field=f_topup_field,
-#     shell:
-#         """
-#         topupdir=$(dirname {output.field})
-#         topup --imain={input.b0_posneg} --datain={input.acqparams} --config={input.topup_conf} --out=$topupdir/topup_Pos_Neg_b0 -v --fout={output.field}
-#         """
+rule topup:
+    """
+    Runs topup to estimate susceptibility-induced distortions.
+    """
+    input:
+        b0_posneg=f_b0_posneg,
+        acqparams=f_acqparams_topup,
+        topup_conf=topup_conf,
+    output:
+        field=f_topup_field,
+    shell:
+        """
+        topupdir=$(dirname {output.field})
+        topup --imain={input.b0_posneg} --datain={input.acqparams} --config={input.topup_conf} --out=$topupdir/topup_Pos_Neg_b0 -v --fout={output.field}
+        """
 
 
-# rule get_hifi_b0:
-#     input:
-#         field=rules.topup.output.field,
-#         b0_pos=f_b0_pos,
-#         b0_neg=f_b0_neg,
-#         acqparams=f_acqparams_topup,
-#     output:
-#         b0_hifi=f_b0_hifi,
-#     shell:
-#         """
-#         topupdir=$(dirname {input.field})
-#         fslroi {input.b0_pos} {input.b0_pos}01 0 1
-#         fslroi {input.b0_neg} {input.b0_neg}01 0 1
-#         applytopup --imain={input.b0_pos}01,{input.b0_neg}01 --topup=$topupdir/topup_Pos_Neg_b0 --datain={input.acqparams} --inindex=1,$(($(fslval {input.b0_pos} dim4)+ 1)) --out={output.b0_hifi}
-#         """
+rule get_hifi_b0:
+    input:
+        field=rules.topup.output.field,
+        b0_pos=f_b0_pos,
+        b0_neg=f_b0_neg,
+        acqparams=f_acqparams_topup,
+    output:
+        b0_hifi=f_b0_hifi,
+    shell:
+        """
+        topupdir=$(dirname {input.field})
+        fslroi {input.b0_pos} {input.b0_pos}01 0 1
+        fslroi {input.b0_neg} {input.b0_neg}01 0 1
+        applytopup --imain={input.b0_pos}01,{input.b0_neg}01 --topup=$topupdir/topup_Pos_Neg_b0 --datain={input.acqparams} --inindex=1,$(($(fslval {input.b0_pos} dim4)+ 1)) --out={output.b0_hifi}
+        """
 
 
-# rule bet_hifi_b0:
-#     input:
-#         b0=rules.get_hifi_b0.output.b0_hifi,
-#     output:
-#         nodif_brain=join(topupdir, "nodif_brain.nii.gz"),
-#     shell:
-#         """
-#         bet {input.b0} {output.nodif_brain} -m -f 0.3
-#         """
+rule bet_hifi_b0:
+    input:
+        b0=rules.get_hifi_b0.output.b0_hifi,
+    output:
+        nodif_brain=join(topupdir, "nodif_brain.nii.gz"),
+    shell:
+        """
+        bet {input.b0} {output.nodif_brain} -m -f 0.3
+        """
 
 
-# rule qc2:
-#     input:
-#         nodif_brain=rule.bet_hifi_b0.output.nodif_brain,
-#         nodif_brain_mask=rule.bet_hifi_b0.output.nodif_brain.replace(
-#             ".nii.gz", "_mask.nii.gz"
-#         ),
-#     output:
-#         fig=f_qc_topup,
-#     run:
-#         from nilearn import plotting
-#         import matplotlib.pyplot as plt
-#         import matplotlib
-#         from nilearn.image import concat_imgs, index_img
+rule qc2:
+    input:
+        nodif_brain=rule.bet_hifi_b0.output.nodif_brain,
+        nodif_brain_mask=rule.bet_hifi_b0.output.nodif_brain.replace(
+            ".nii.gz", "_mask.nii.gz"
+        ),
+    output:
+        fig=f_qc_topup,
+    run:
+        from nilearn import plotting
+        import matplotlib.pyplot as plt
+        import matplotlib
+        from nilearn.image import concat_imgs, index_img
 
-#         # Use a non-interactive backend
-#         matplotlib.use("agg")
-#         fig, axs = plt.subplots(nrows=2, figsize=(16, 9))
-#         plotting.plot_anat(input.nodif_brain, axes=axs[0])
-#         plotting.plot_roi(input.nodif_brain_mask, input.nodif_brain, axes=axs[1])
-#         fig.savefig(output.fig)
+        # Use a non-interactive backend
+        matplotlib.use("agg")
+        fig, axs = plt.subplots(nrows=2, figsize=(16, 9))
+        plotting.plot_anat(input.nodif_brain, axes=axs[0])
+        plotting.plot_roi(input.nodif_brain_mask, input.nodif_brain, axes=axs[1])
+        fig.savefig(output.fig)
 
 
 ################################
@@ -651,40 +651,40 @@ rule qc1:
 ################################
 
 
-# rule eddy:
-#     """
-#     Correct for eddy current-induced distortions and subject movements
-#     """
-#     input:
-#         imain=rules.merge_data.output.img_posneg,
-#         field=rules.topup.output.field,
-#         mask=rules.bet_hifi_b0.output.nodif_brain,
-#         index=f_series_index,
-#         acqparams=f_acqparams_eddy,
-#         bvecs=f_bvecs_posneg,
-#         bvals=f_bvals_posneg,
-#     params:
-#         fwhm=0,
-#     output:
-#         eddy=f_eddy,
-#     run:
-#         topup = input.field.replace("_field.nii.gz", "")
-#         shell(
-#             "eddy"
-#             + " diffusion"
-#             + " --cnr_maps"
-#             + f" --imain={input.imain}"
-#             + f" --mask={input.mask}"
-#             + f" --index={input.index}"
-#             + f" --acqp={input.acqparams}"
-#             + f" --bvecs={input.bvecs}"
-#             + f" --bvals={input.bvals}"
-#             + f" --fwhm={params.fwhm}"
-#             + f" --topup={topup}"
-#             + f" --out={output.eddy.replace('.nii.gz', '')}"
-#             + f" --nthr={config['nthreads']}"
-#             + " --verbose"
-#         )
+rule eddy:
+    """
+    Correct for eddy current-induced distortions and subject movements
+    """
+    input:
+        imain=rules.merge_data.output.img_posneg,
+        field=rules.topup.output.field,
+        mask=rules.bet_hifi_b0.output.nodif_brain,
+        index=f_series_index,
+        acqparams=f_acqparams_eddy,
+        bvecs=f_bvecs_posneg,
+        bvals=f_bvals_posneg,
+    params:
+        fwhm=0,
+    output:
+        eddy=f_eddy,
+    run:
+        topup = input.field.replace("_field.nii.gz", "")
+        shell(
+            "eddy"
+            + " diffusion"
+            + " --cnr_maps"
+            + f" --imain={input.imain}"
+            + f" --mask={input.mask}"
+            + f" --index={input.index}"
+            + f" --acqp={input.acqparams}"
+            + f" --bvecs={input.bvecs}"
+            + f" --bvals={input.bvals}"
+            + f" --fwhm={params.fwhm}"
+            + f" --topup={topup}"
+            + f" --out={output.eddy.replace('.nii.gz', '')}"
+            + f" --nthr={config['nthreads']}"
+            + " --verbose"
+        )
 
 
 ################################
