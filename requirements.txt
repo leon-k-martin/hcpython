@@ -1,0 +1,4 @@
+matplotlib
+nilearn
+snakemake
+nibabel

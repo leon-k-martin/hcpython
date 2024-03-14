@@ -1,0 +1,22 @@
+workingdir: /Volumes/bronkodata_work/HCP-D/fmriresults01/HCD0001305_V1_MR
+
+rawdir: /Volumes/bronkodata_work/HCP-D/imagingcollection01
+
+t1dir: /Volumes/bronkodata_work/HCP-D/fmriresults01
+freesurferdir: /Volumes/bronkodata_work/HCP-D/fmriresults01/{subid}/T1w
+
+outdir: /Volumes/bronkodata_work/hcpython/testsub
+logdir: /Volumes/bronkodata_work/hcpython/testsub/log
+
+nthreads: 8
+
+b0maxbval: 50
+b0dist: 45
+
+PhaseEncodingDirections: ["AP", "PA"]
+PosPE: "PA"
+NegPE: "AP"
+ImagingSequences: ["dMRI_dir98", "dMRI_dir99"]
+
+containers:
+  mrtrix: docker://mrtrix3/mrtrix3
