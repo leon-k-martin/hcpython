@@ -4,6 +4,7 @@ import json
 from os.path import join, basename, dirname
 import hcpy
 from hcpy.utils import *
+from hcpy import data
 
 
 # Define global variables and configurations
@@ -42,20 +43,7 @@ datadir = join(subdir, "Diffusion", "data")
 rawdatadir = join(subdir, "Diffusion", "rawdata")
 logdir = join(subdir, "Diffusion", "log")
 outdir_T1w = join(subdir, "T1w", "Diffusion")
-
-logfiles = [
-    join(logdir, "combine_data.done"),
-    join(logdir, "get_rotated_bvecs.done"),
-    join(logdir, "average_bvecs.done"),
-    join(logdir, "create_fov_mask.done"),
-    join(logdir, "mask_out_data.done"),
-    join(logdir, "epi_reg_dof.done"),
-    join(logdir, "remove_bias_field.done"),
-    join(logdir, "bbregister.done"),
-    join(logdir, "tkregister2.done"),
-    join(logdir, "apply_warp3_remove_bias.done"),
-    join(logdir, "register_diff_to_T1w.done"),
-]
+parcdir = join(outdir_T1w, "parc")
 
 f_b0 = join(rawdatadir, "{subid}_{sequence}_{PEdir}_b0.nii.gz")
 
@@ -89,6 +77,22 @@ f_bvecs_posneg = join(eddydir, "Pos_Neg.bvecs")
 f_acqparams_eddy = join(eddydir, "acqparams.txt")
 f_eddy = join(eddydir, "eddy_unwarped_images.nii.gz")
 
+# PostEddy
+dir_T1w = join(config["t1dir"], "{subid}", "T1w")
+f_T1w = join(dir_T1w, "T1w_acpc_dc.nii.gz")
+f_T1w_restore = join(dir_T1w, "T1w_acpc_dc_restore.nii.gz")
+f_T1w_restore_brain = join(dir_T1w, "T1w_acpc_dc_restore_brain.nii.gz")
+
+f_BiasField = join(dir_T1w, "BiasField_acpc_dc.nii.gz")
+f_FreeSurferBrainMask = join(dir_T1w, "brainmask_fs.nii.gz")
+
+# f_RegOutput = join(subdir, "Diffusion", "reg", "RegOutput")
+# f_QAImage = join(subdir, "Diffusion", "reg", "T1wMulEPI")
+
+
+# MRTrix
+MRTrix_out = join(outdir_T1w, "MRTrix")
+MRTrix_log = join(MRTrix_out, "log")
 
 sequences = config["ImagingSequences"]
 PEdirs = config["PhaseEncodingDirections"]
@@ -130,7 +134,27 @@ logfiles = [
         "create_mif.done",
         "tissue_segmentation.done",
         "bias_correction.done",
+        "create_mean_b0.done",
+        "extract_response_functions.done",
+        "generate_mask.done",
+        "generate_fod.done",
+        "normalize_fod.done",
+        "run_tractography.done",
+        "run_sift.done",
+        "mmp2surf.done",
+        "mmp2vol.done",
+        "mmp_vol_to_mrtrix.done",
+        "desikan_vol_to_mrtrix.done",
+        "qc_parc.done",
+        "create_sc.done",
+        "qc_sc.done",
+        "qc_tractography.done",
     ]
+]
+
+endfiles = [
+    join(MRTrix_out, "sub-{subid}_parc-mmp1_sc_weights.csv"),
+    join(MRTrix_out, "sub-{subid}_parc-mmp1_sc_lengths.csv"),
 ]
 
 
@@ -140,7 +164,7 @@ rule all:
     """
     input:
         expand(
-            qcfiles + logfiles,
+            qcfiles + logfiles + endfiles,
             subid=subids,
             sequence=sequences,
             PEdir=PEdirs,
@@ -155,40 +179,46 @@ rule create_series_files:
         neg=join(eddydir, "Neg_SeriesVolNum.txt"),
         pos_corr=join(subdir, "Diffusion", "rawdata", "Pos_SeriesCorrespVolNum.txt"),
         neg_corr=join(subdir, "Diffusion", "rawdata", "Neg_SeriesCorrespVolNum.txt"),
-    run:
-        import json
-        import nibabel as nib
+        done=join(logdir, "create_series_files.done"),
+    shell:
+        """
+        python -c '
+import json
+import nibabel as nib
 
-        # Initialize lists to store volume numbers
-        pos_vols = []
-        neg_vols = []
+# Initialize lists to store volume numbers
+pos_vols = []
+neg_vols = []
 
-        # Process each image to categorize them and count volumes
-        for img in input.imgs:
-            volumes = nib.load(img).shape[3]
-            pedir = get_pedir(img)
-            if "-" in pedir:
-                neg_vols.append(volumes)
-            else:
-                pos_vols.append(volumes)
+# Process each image to categorize them and count volumes
+for img in {input.imgs}:
+    volumes = nib.load(img).shape[3]
+    pedir = get_pedir(img)
+    if "-" in pedir:
+        neg_vols.append(volumes)
+    else:
+        pos_vols.append(volumes)
 
-                # Ensure volumes are sorted to match pairs correctly
-        pos_vols.sort()
-        neg_vols.sort()
+# Ensure volumes are sorted to match pairs correctly
+pos_vols.sort()
+neg_vols.sort()
 
-        with open(output.pos, "w") as pos_file, open(output.neg, "w") as neg_file, open(
-            output.pos_corr, "w"
-        ) as pos_corr_file, open(output.neg_corr, "w") as neg_corr_file:
-            for vol_pos, vol_neg in zip(pos_vols, neg_vols):
-                min_vol = min(vol_pos, vol_neg)
-                pos_file.write(f"{min_vol} {vol_pos}\n")
-                neg_file.write(f"{min_vol} {vol_neg}\n")
+with open("{output.pos}", "w") as pos_file, open("{output.neg}", "w") as neg_file, open(
+    "{output.pos_corr}", "w"
+) as pos_corr_file, open("{output.neg_corr}", "w") as neg_corr_file:
+    for vol_pos, vol_neg in zip(pos_vols, neg_vols):
+        min_vol = min(vol_pos, vol_neg)
+        pos_file.write(f"{min_vol} {vol_pos}\n")
+        neg_file.write(f"{min_vol} {vol_neg}\n")
 
-                if vol_pos > 0:
-                    pos_corr_file.write(f"{min_vol}\n")
+        if vol_pos > 0:
+            pos_corr_file.write(f"{min_vol}\n")
 
-                if vol_neg > 0:
-                    neg_corr_file.write(f"{min_vol}\n")
+        if vol_neg > 0:
+            neg_corr_file.write(f"{min_vol}\n")'
+
+        echo $(date) > {output.done}
+        """
 
 
 rule verify_input_pairs:
@@ -210,15 +240,17 @@ rule verify_input_pairs:
             sequence=sequences,
             PEdir=PEdirs[1],
         ),
-    run:
-        pos_count = len(input.pos)
-        neg_count = len(input.neg)
-        if pos_count != neg_count:
-            raise ValueError(
-                "Wrong number of input datasets! Make sure that you provide pairs of input filenames."
-            )
-        else:
-            print("Input datasets are provided in pairs.")
+    shell:
+        """
+        pos_count=$(ls -1 {input.pos} | wc -l)
+        neg_count=$(ls -1 {input.neg} | wc -l)
+        if [ $pos_count -ne $neg_count ]; then
+            echo "Wrong number of input datasets! Make sure that you provide pairs of input filenames."
+            exit 1
+        else
+            echo "Input datasets are provided in pairs."
+        fi
+        """
 
 
 rule check_even_slices:
@@ -229,16 +261,16 @@ rule check_even_slices:
         dwi=f_dwi,
     output:
         checkeven=f_checkeven,
-    run:
-        import nibabel as nib
-
-        is_even_slices = nib.load(input.dwi).shape[2] % 2 == 0
-        if basename(topup_conf) == "b02b0.cnf" and not is_even_slices:
-            raise ValueError(
-                "Input images have an odd number of slices. This is incompatible with the default topup configuration file. Either supply a topup configuration file that doesn't use subsampling (e.g., FSL's 'b02b0_1.cnf') using the --topup-config-file=<file> flag (recommended), or instruct the HCP pipelines to remove a slice using the --ensure-even-slices flag (legacy option). Note that the legacy option is incompatible with slice-to-volume correction in FSL's eddy."
-            )
-        with open(output.checkeven, "w") as f:
-            f.write(str(is_even_slices))
+    shell:
+        """
+        is_even_slices=$(python -c "import nibabel as nib; print(nib.load('{input.dwi}').shape[2] % 2 == 0)")
+        if [ "$(basename {topup_conf})" == "b02b0.cnf" ] && [ "$is_even_slices" == "False" ]; then
+            echo "Input images have an odd number of slices. This is incompatible with the default topup configuration file. Either supply a topup configuration file that doesn't use subsampling (e.g., FSL's 'b02b0_1.cnf') using the --topup-config-file=<file> flag (recommended), or instruct the HCP pipelines to remove a slice using the --ensure-even-slices flag (legacy option). Note that the legacy option is incompatible with slice-to-volume correction in FSL's eddy."
+            exit 1
+        else
+            echo "$is_even_slices" > {output.checkeven}
+        fi
+            """
 
 
 ################################
@@ -285,29 +317,32 @@ rule extract_b0_volumes:
     params:
         b0maxbval=config["b0maxbval"],
         b0dist=config["b0dist"],
-    run:
-        import os
-        import nibabel as nib
+    shell:
+        """
+        pyhton -c '
+import os
+import nibabel as nib
 
-        # Get b0 indices
-        indices, log = extract_b0_indices(
-            input.bval, params.b0maxbval, b0dist=params.b0dist
-        )
+# Get b0 indices
+indices, log = extract_b0_indices(
+    input.bval, params.b0maxbval, b0dist=params.b0dist
+)
 
-        indcount = 1  # Initialize index counter
+indcount = 1  # Initialize index counter
 
-        # Prepare FSL command to extract b0 volumes
-        for idx in indices:
-            output_file = os.path.splitext(output.b0)[0] + f"_{idx}.nii.gz"
-            shell(f"fslroi {input.nii} {output_file} {idx} 1")
-            indcount += 1
+# Prepare FSL command to extract b0 volumes
+for idx in indices:
+    output_file = os.path.splitext(output.b0)[0] + f"_{idx}.nii.gz"
+    shell(f"fslroi {input.nii} {output_file} {idx} 1")
+    indcount += 1
 
-        PEdir = get_pedir(input.nii)
-        ro_time = get_readout_time(input.nii, PEdir)
+PEdir = get_pedir(input.nii)
+ro_time = get_readout_time(input.nii, PEdir)
 
-        # Merge the extracted b0 volumes
-        shell(f"fslmerge -t {output.b0} {os.path.splitext(output.b0)[0]}_*.nii.gz")
-        shell(f"rm {os.path.splitext(output.b0)[0]}_*.nii.gz")
+# Merge the extracted b0 volumes
+shell(f"fslmerge -t {output.b0} {os.path.splitext(output.b0)[0]}_*.nii.gz")
+shell(f"rm {os.path.splitext(output.b0)[0]}_*.nii.gz")'
+        """
 
 
 rule rescale_series_conditionally:
@@ -742,7 +777,7 @@ rule combine_data:
         neg_series_vol_num=rules.create_series_files.output.neg,
         pos_series_vol_num=rules.create_series_files.output.pos,
     output:
-        data=protected(join(datadir, "data.nii.gz")),
+        data=join(datadir, "data.nii.gz"),
         log=join(logdir, "combine_data.done"),
     params:
         data=directory(datadir),
@@ -913,18 +948,6 @@ rule mask_out_data:
 ################################
 # DiffusionToStructural        #
 ################################
-dir_T1w = join(config["t1dir"], "{subid}", "T1w")
-f_T1w = join(dir_T1w, "T1w_acpc_dc.nii.gz")
-f_T1w_restore = join(dir_T1w, "T1w_acpc_dc_restore.nii.gz")
-f_T1w_restore_brain = join(dir_T1w, "T1w_acpc_dc_restore_brain.nii.gz")
-
-f_BiasField = join(dir_T1w, "BiasField_acpc_dc.nii.gz")
-f_FreeSurferBrainMask = join(dir_T1w, "brainmask_fs.nii.gz")
-
-f_RegOutput = join(subdir, "Diffusion", "reg", "RegOutput")
-f_QAImage = join(subdir, "Diffusion", "reg", "T1wMulEPI")
-# DiffRes=$(${FSLDIR}/bin/fslval ${outdir}/data/data pixdim1)
-# DiffRes=$(printf "%0.2f" ${DiffRes})
 
 
 rule epi_reg_dof:
@@ -942,8 +965,8 @@ rule epi_reg_dof:
         basepath=join(outdir_T1w, "nodif2T1w_initII"),
     group:
         "DiffusionToStructural"
-    container:
-        config["containers"]["qunex"]
+    # container:
+    #     config["containers"]["qunex"]
     run:
         # TODO: write out EPI_REG_DOF into workflow
         shell(
@@ -1142,7 +1165,7 @@ rule diff_res_structural_space:
     input:
         data=rules.mask_out_data.output.data_masked,
         t1_restore=f_T1w_restore,
-        epi2t1=rules.apply_warp3.output.epi2t1,
+        epi2t1=rules.remove_bias.output.epi2t1_restore,
     output:
         t1_diffres=join(outdir_T1w, "T1w_acpc_dc_restore_diffRes.nii.gz"),
         diffres=join(outdir_T1w, "DiffRes.txt"),
@@ -1216,8 +1239,8 @@ rule rotate_bvecs_to_struct:
         log=join(logdir, "rotate_bvecs_to_struct.done"),
     group:
         "DiffusionToStructural"
-    container:
-        config["containers"]["qunex"]
+    # container:
+    #     config["containers"]["qunex"]
     run:
         shell(
             f"$HCPPIPEDIR/global/scripts/Rotate_bvecs.sh {input.bvecs} {input.mat} {output.bvec_struct}"
@@ -1370,9 +1393,6 @@ rule calculate_coverage:
 # MRTrix3                      #
 ################################
 
-MRTrix_out = join(outdir_T1w, "MRTrix")
-MRTrix_log = join(MRTrix_out, "log")
-
 
 rule create_mif:
     """Create .mif for further processing with MRTrix."""
@@ -1392,11 +1412,11 @@ rule create_mif:
     resources:
         mem_mb=8 * 1024,
         runtime=10,  # in minutes
-    run:
-        shell(
-            f"mrconvert {input.data} {output.dwi} --fslgrad {input.bvecs} {input.bvals} -datatype float32 -stride 0,0,0,1 -nthreads {threads} -force -info"
-        )
-        shell(f"echo $(date) > {output.log}")
+    shell:
+        """
+        mrconvert {input.data} {output.dwi} --fslgrad {input.bvecs} {input.bvals} -datatype float32 -stride 0,0,0,1 -nthreads {threads} -force -info
+        echo $(date) > {output.log}
+        """
 
 
 rule tissue_segmentation:
@@ -1413,11 +1433,11 @@ rule tissue_segmentation:
     resources:
         mem_mb=8 * 1024,
         runtime=10,  # in minutes
-    run:
-        shell(
-            f"5ttgen fsl {input.t1_brain} {output.seg} -t2 {input.t2_brain} -premasked -nthreads {threads}"
-        )
-        shell(f"echo $(date) > {output.log}")
+    shell:
+        """
+        5ttgen fsl {input.t1_brain} {output.seg} -t2 {input.t2_brain} -premasked -nthreads {threads}
+        echo $(date) > {output.log}
+        """
 
 
 rule bias_correction:
@@ -1460,11 +1480,11 @@ rule create_mean_b0:
     resources:
         mem_mb=8 * 1024,
         runtime=5,  # in minutes
-    run:
-        shell(
-            f"dwiextract {input.dwi_bias} - -bzero | mrmath - mean {output.mean_b0} -axis 3 -force -info"
-        )
-        shell(f"echo $(date) > {output.log}")
+    shell:
+        """
+        dwiextract {input.dwi_bias} - -bzero | mrmath - mean {output.mean_b0} -axis 3 -force -info
+        echo $(date) > {output.log}
+        """
 
 
 rule extract_response_functions:
@@ -1485,11 +1505,12 @@ rule extract_response_functions:
     resources:
         mem_mb=8 * 1024,
         runtime=10,  # in minutes
-    run:
-        shell(
-            f"dwi2response dhollander {input.dwi_bias} {output.response_wm} {output.response_gm} {output.response_csf} -voxels {output.voxels} -nthreads {threads} -force -info"
-        )
-        shell(f"echo $(date) > {output.log}")
+    shell:
+        """
+        dwi2response dhollander {input.dwi_bias} {output.response_wm} {output.response_gm} {output.response_csf} -voxels {output.voxels} -nthreads {threads} -force -info
+
+        echo $(date) > {output.log}
+        """
 
 
 rule generate_mask:
@@ -1498,13 +1519,381 @@ rule generate_mask:
         dwi_bias=join(MRTrix_out, "DWI_bias_ants.mif"),
     output:
         dwi_mask=join(MRTrix_out, "DWI_mask.mif"),
+        log=join(logdir, "generate_mask.done"),
     group:
         "preprocessing"
     threads: 1
+    # container:
+    #     config["containers"]["mrtrix"]
     resources:
         mem_mb=8 * 1024,
         runtime=10,  # in minutes
-    run:
-        shell(
-            f"dwi2mask {input.dwi_bias} {output.dwi_mask} -nthreads {threads} -force -info"
-        )
+    shell:
+        """
+        dwi2mask {input.dwi_bias} {output.dwi_mask} -nthreads {threads} -force -info
+        echo $(date) > {output.log}
+        """
+
+
+rule generate_fod:
+    """Estimate fibre orientation distributions from diffusion data using spherical deconvolution"""
+    input:
+        dwi_bias=rules.bias_correction.output.dwi_bias,
+        dwi_mask=rules.generate_mask.output.dwi_mask,
+        response_wm=rules.extract_response_functions.output.response_wm,
+        response_gm=rules.extract_response_functions.output.response_gm,
+        response_csf=rules.extract_response_functions.output.response_csf,
+    output:
+        fod_wm=join(MRTrix_out, "wmfod.mif"),
+        fod_gm=join(MRTrix_out, "gmfod.mif"),
+        fod_csf=join(MRTrix_out, "csffod.mif"),
+        vf=join(MRTrix_out, "volume_fraction.mif"),
+        log=join(logdir, "generate_fod.done"),
+    group:
+        "preprocessing"
+    threads: 1
+    # container:
+    #     config["containers"]["mrtrix"]
+    resources:
+        mem_mb=8 * 1024,
+        runtime=60,  # in minutes
+    shell:
+        r"""
+        dwi2fod msmt_csd {input.dwi_bias} \
+            {input.response_wm} {output.fod_wm} \
+            {input.response_gm} {output.fod_gm} \
+            {input.response_csf} {output.fod_csf} \
+            -mask {input.dwi_mask} \
+            -nthreads {threads} -force -info
+
+        mrconvert -coord 3 0 {output.fod_wm} - | mrcat {output.fod_csf} {output.fod_gm} - {output.vf}
+        echo $(date) > {output.log}
+        """
+
+
+rule normalize_fod:
+    """
+    Intensity Normalization
+    =======================
+    Correct  for  global  intensity. Important when performing group studies!
+    """
+    input:
+        dwi_mask=rules.generate_mask.output.dwi_mask,
+        fod_wm=rules.generate_fod.output.fod_wm,
+        fod_gm=rules.generate_fod.output.fod_gm,
+        fod_csf=rules.generate_fod.output.fod_csf,
+    output:
+        fod_wm_norm=join(MRTrix_out, "wmfod_norm.mif"),
+        fod_gm_norm=join(MRTrix_out, "gmfod_norm.mif"),
+        fod_csf_norm=join(MRTrix_out, "csffod_norm.mif"),
+        check_norm=join(MRTrix_out, "mtnormalise_norm.mif"),
+        check_mask=join(MRTrix_out, "mtnormalise_mask.mif"),
+        log=join(logdir, "normalize_fod.done"),
+    group:
+        "preprocessing"
+    threads: 1
+    # container:
+    #     config["containers"]["mrtrix"]
+    resources:
+        mem_mb=8 * 1024,
+        runtime=10,  # in minutes
+    shell:
+        r"""
+        mtnormalise \
+            {input.fod_wm} {output.fod_wm_norm} \
+            {input.fod_gm} {output.fod_gm_norm} \
+            {input.fod_csf} {output.fod_csf_norm} \
+            -mask {input.dwi_mask} \
+            -check_norm {output.check_norm} \
+            -check_mask {output.check_mask} \
+            -nthreads {threads} -force -info
+
+        echo $(date) > {output.log}
+        """
+
+
+rule run_tractography:
+    """Create Tractogram with MRTrix tckgen"""
+    input:
+        fod_wm_norm=rules.normalize_fod.output.fod_wm_norm,
+        seg=rules.tissue_segmentation.output.seg,
+    output:
+        tracks=join(MRTrix_out, "100M_tracks.tck"),
+        donwsampled_tracks=join(MRTrix_out, "200k_tracks.tck"),
+        seeds=join(MRTrix_out, "seeds.txt"),
+        log=join(MRTrix_out, "tckgen_log.txt"),
+        done=join(logdir, "run_tractography.done"),
+    group:
+        "tractography"
+    threads: 32
+    # container:
+    #     config["containers"]["mrtrix"]
+    resources:
+        mem_mb=32 * 1024,
+        runtime=20 * 60,  # in minutes
+    shell:
+        r"""
+        tckgen \
+        -force \
+        -nthreads {threads} \
+        -algorithm iFOD2 \
+        -select 100M \
+        -cutoff 0.06 \
+        -minlength 2.5 \
+        -maxlength 250.0 \
+        -act {input.seg} \
+        -backtrack \
+        -crop_at_gmwmi \
+        -max_attempts_per_seed 1000 \
+        -seed_dynamic {input.fod_wm_norm} \
+        -output_seeds {output.seeds} \
+        {input.fod_wm_norm} {output.tracks} |& tee {output.log}
+
+        tckedit {output.tracks} -number 200k {output.donwsampled_tracks}
+        echo $(date) > {output.done}
+        """
+
+
+rule qc_tractography:
+    input:
+        tracks=rules.run_tractography.output.tracks,
+        t1=join(dir_T1w, "T1w_acpc_dc_restore_brain.nii.gz"),
+        fod_wm=rules.generate_fod.output.fod_wm,
+        fod_wm_norm=rules.normalize_fod.output.fod_wm_norm,
+    output:
+        fig=join(qcdir, "tractography.png"),
+        log=join(logdir, "qc_tractography.done"),
+    shell:
+        """
+        mrconvert -force {input.fod_wm} {input.fod_wm}.nii.gz
+        mrconvert -force {input.fod_wm_norm} {input.fod_wm_norm}.nii.gz
+        python -c '
+from hcpy import plotting
+plotting.plot_fod_histogram(fod="{input.fod_wm}.nii.gz", fod_norm="{input.fod_wm_norm}.nii.gz", output_fig="{output.fig}")'
+        echo $(date) > {output.log}
+        """
+
+
+rule run_sift:
+    """Select tracts using spherical deconvolution"""
+    input:
+        tracks=rules.run_tractography.output.tracks,
+        fod_wm_norm=rules.normalize_fod.output.fod_wm_norm,
+        seg=rules.tissue_segmentation.output.seg,
+    output:
+        sift_weights=join(MRTrix_out, "sift_weights.txt"),
+        done=join(logdir, "run_sift.done"),
+    group:
+        "preprocessing"
+    threads: 32
+    # container:
+    #     config["containers"]["mrtrix"]
+    resources:
+        mem_mb=8 * 1024,
+        runtime=10,  # in minutes
+    shell:
+        r"""
+        tcksift2 \
+            {input.tracks} {input.fod_wm_norm} {output.sift_weights} \
+            -act {input.seg} \
+            -nthreads {threads} -force -info
+        echo $(date) > {output.done}
+        """
+
+
+################################
+# Parcellation                 #
+################################
+
+
+rule mmp2surf:
+    input:
+        mmp_lh=data.mmp_annot_lh,
+        mmp_rh=data.mmp_annot_rh,
+        fsdir=config["freesurferdir"],
+        fshome=config["freesurferhome"],
+    output:
+        mmp_lh=join(config["freesurferdir"], "{subid}", "label", "lh.hcpmmp1.annot"),
+        mmp_rh=join(config["freesurferdir"], "{subid}", "label", "rh.hcpmmp1.annot"),
+        done=join(logdir, "mmp2surf.done"),
+    # container:
+    #     config["containers"]["qunex"]
+    shell:
+        """
+        export SUBJECTS_DIR={input.fsdir}
+        ln -sf {input.fshome}/subjects/fsaverage {input.fsdir}/fsaverage
+
+        mri_surf2surf --srcsubject fsaverage --trgsubject {wildcards.subid} --hemi lh --sval-annot {input.mmp_lh} --tval {output.mmp_lh}
+
+        mri_surf2surf --srcsubject fsaverage --trgsubject {wildcards.subid} --hemi rh --sval-annot {input.mmp_rh} --tval {output.mmp_rh}
+
+        echo $(date) > {output.done}
+        """
+
+
+rule mmp2vol:
+    input:
+        annot_lh=rules.mmp2surf.output.mmp_lh,
+        annot_rh=rules.mmp2surf.output.mmp_rh,
+        rawavg=join(config["freesurferdir"], "{subid}", "mri", "rawavg.mgz"),
+        fsdir=config["freesurferdir"],
+    output:
+        orig=join(parcdir, "orig_hcpmmp1.mgz"),
+        rawavg=join(parcdir, "rawavg_hcpmmp1.nii.gz"),
+        done=join(logdir, "mmp2vol.done"),
+    # container:
+    #     config["containers"]["qunex"]
+    shell:
+        """
+        export SUBJECTS_DIR={input.fsdir}
+        mri_aparc2aseg --old-ribbon --s {wildcards.subid} --annot hcpmmp1 --o {output.orig}
+
+        mri_label2vol --seg {output.orig} --temp {input.rawavg} --o {output.rawavg} --regheader {output.orig}
+
+        echo $(date) > {output.done}
+        """
+
+
+rule mmp_vol_to_mrtrix:
+    """
+    Convert Freesurfer labels to MRTrix format
+    """
+    input:
+        rawavg=rules.mmp2vol.output.rawavg,
+        original_order=data.mmp_mrtrix_original,
+        mrtrix_order=data.mmp_mrtrix_ordered,
+    output:
+        labels=join(parcdir, "hcpmmp1.mif"),
+        ordered_labels=join(parcdir, "hcpmmp1_ordered.mif"),
+        parc=join(parcdir, "sub-{subid}_parc-hcpmmp1_space-T1acpc.nii.gz"),
+        done=join(logdir, "mmp_vol_to_mrtrix.done"),
+    # container:
+    #     config["containers"]["mrtrix"]
+    shell:
+        """
+        mrconvert -datatype uint32 {input.rawavg} {output.labels}
+
+        labelconvert {output.labels} {input.original_order} {input.mrtrix_order} {output.ordered_labels}
+
+        mrconvert -datatype uint32 {output.ordered_labels} {output.parc}
+
+        echo $(date) > {output.done}
+        """
+
+
+rule desikan_vol_to_mrtrix:
+    """
+    Convert Freesurfer labels to MRTrix format
+    """
+    input:
+        aparc=join(dir_T1w, "aparc+aseg.nii.gz"),
+        LUT=join(config["freesurferhome"], "FreeSurferColorLUT.txt"),
+        dk_ordered=data.dk_mrtrix_ordered,
+    output:
+        parc=join(parcdir, "sub-{subid}_parc-desikan_space-T1acpc.nii.gz"),
+        done=join(logdir, "desikan_vol_to_mrtrix.done"),
+    # container:
+    #     config["containers"]["mrtrix"]
+    shell:
+        """
+        labelconvert {input.aparc} {input.LUT} {input.dk_ordered} {output.parc}
+        echo $(date) > {output.done}
+        """
+
+
+rule qc_parc:
+    input:
+        t1=join(dir_T1w, "T1w_acpc_dc_restore_brain.nii.gz"),
+        parc=rules.mmp_vol_to_mrtrix.output.parc,
+        parc_dk=rules.desikan_vol_to_mrtrix.output.parc,
+    output:
+        fig=join(qcdir, "qc_mmp.png"),
+        fig_dk=join(qcdir, "qc_dk.png"),
+        done=join(logdir, "qc_parc.done"),
+    shell:
+        """
+        python -c '
+from hcpy import plotting
+plotting.plot_mmp2subject("{wildcards.subid}", "{input.t1}", "{input.parc}", "{output.fig}")
+plotting.plot_dk2subject("{wildcards.subid}", "{input.t1}", "{input.parc_dk}", "{output.fig_dk}")
+'
+        echo $(date) > {output.done}
+        """
+
+
+rule create_sc:
+    input:
+        parc=rules.mmp_vol_to_mrtrix.output.parc,
+        tracks=rules.run_tractography.output.tracks,
+        sift_weights=rules.run_sift.output.sift_weights,
+    output:
+        weights=join(MRTrix_out, "sub-{subid}_parc-mmp1_sc_weights.csv"),
+        lengths=join(MRTrix_out, "sub-{subid}_parc-mmp1_sc_lengths.csv"),
+        assignments=join(MRTrix_out, "assignments.txt"),
+        done=join(logdir, "create_sc.done"),
+    threads: config["nthreads"]
+    # container:
+    #     config["containers"]["mrtrix"]
+    shell:
+        """
+        tck2connectome {input.tracks} {input.parc} {output.weights} -tck_weights_in {input.sift_weights} -out_assignments {output.assignments} -symmetric -zero_diagonal -scale_invnodevol -nthreads {threads}
+
+        tck2connectome {input.tracks} {input.parc} {output.lengths} -tck_weights_in {input.sift_weights} -symmetric -zero_diagonal -scale_length -stat_edge mean -nthreads {threads}
+        echo $(date) > {output.done}
+        """
+
+
+rule create_sc_dk:
+    input:
+        parc=rules.desikan_vol_to_mrtrix.output.parc,
+        tracks=rules.run_tractography.output.tracks,
+        sift_weights=rules.run_sift.output.sift_weights,
+    output:
+        weights=join(MRTrix_out, "sub-{subid}_parc-DeskianKilliany_sc_weights.csv"),
+        lengths=join(MRTrix_out, "sub-{subid}_parc-DeskianKilliany_sc_lengths.csv"),
+        done=join(logdir, "create_sc_dk.done"),
+    threads: config["nthreads"]
+    # container:
+    #     config["containers"]["mrtrix"]
+    shell:
+        """
+        tck2connectome {input.tracks} {input.parc} {output.weights} -tck_weights_in {input.sift_weights} -symmetric -zero_diagonal -nthreads {threads}
+        tck2connectome {input.tracks} {input.parc} {output.lengths} -tck_weights_in {input.sift_weights} -symmetric -zero_diagonal -scale_length -stat_edge mean -nthreads {threads}
+        echo $(date) > {output.done}
+        """
+
+
+# rule roi_tracks:
+#     input:
+#         assignments=rules.create_sc.output.assignments,
+#         tracks=rules.run_tractography.output.tracks,
+#         sift_weights=rules.run_sift.output.sift_weights,
+#     output:
+#         roi_tracks=join(MRTrix_out, "roi_tracks"),
+#         done=join(logdir, "roi_tracks.done"),
+#     shell:
+#         """
+#         connectome2tck 100M_tracks.tck assignments.txt node -files per_node -tck_weights_in sift_weights.txt
+#         """
+
+
+rule qc_sc:
+    input:
+        parc=rules.mmp_vol_to_mrtrix.output.parc,
+        weights=rules.create_sc.output.weights,
+        lengths=rules.create_sc.output.lengths,
+        weights_dk=rules.create_sc_dk.output.weights,
+        lengths_dk=rules.create_sc_dk.output.lengths,
+    output:
+        fig=join(qcdir, "qc_parc-mmp_sc.png"),
+        fig_dk=join(qcdir, "qc_parc-dk_sc.png"),
+        done=join(logdir, "qc_sc.done"),
+    shell:
+        """
+        python -c '
+from hcpy import plotting
+plotting.plot_sc("{wildcards.subid}", "{input.weights}", "{input.lengths}", "{output.fig}")
+plotting.plot_sc("{wildcards.subid}", "{input.weights_dk}", "{input.lengths_dk}", "{output.fig_dk}")
+'
+        echo $(date) > {output.done}
+        """
