@@ -1,6 +1,19 @@
+import os
+import sys
+
+import matplotlib.pyplot as plt
+import nibabel as nib
+import numpy as np
+from matplotlib.colors import ListedColormap
+from nilearn import plotting
+
+from hcpy import data
+
+
 # plotting.py
 def plot_bvecs(bvecs, bvals=None, fout="bvecs.html"):
     import os
+
     import numpy as np
     import plotly.graph_objects as go
 
@@ -47,9 +60,9 @@ def plot_bvecs(bvecs, bvals=None, fout="bvecs.html"):
 
 
 def plot_brain_data():
-    import plotly.graph_objects as go
-    import numpy as np
     import hcp_utils as hcp
+    import numpy as np
+    import plotly.graph_objects as go
 
     vertices, triangles = hcp.mesh.inflated_left
 
@@ -83,3 +96,166 @@ def plot_brain_data():
 
     # Showing the figure
     fig.show()
+
+
+def plot_parc2subject(
+    subid, parc_name, t1_image_path, parcellation_image_path, output_png_path, roi_info
+):
+
+    # Load T1 image and parcellation image
+    t1_img = nib.load(t1_image_path)
+    parcellation_img = nib.load(parcellation_image_path)
+
+    # Create a custom colormap using the listed colors
+    cmap = ListedColormap(
+        roi_info.loc[:, ["R", "G", "B", "A"]].values.astype(float) / 255
+    )
+
+    disp = plotting.plot_roi(
+        parcellation_img,
+        t1_img,
+        title=f"{subid} {parc_name}",
+        display_mode="mosaic",
+        cmap=cmap,
+        alpha=0.8,
+    )
+
+    # Save the overlay image as a PNG file
+    disp.savefig(output_png_path)
+    plt.close()
+
+
+def plot_mmp2subject(subid, t1_image_path, parcellation_image_path, output_png_path):
+
+    plot_parc2subject(
+        subid,
+        "MMP",
+        t1_image_path,
+        parcellation_image_path,
+        output_png_path,
+        data.mmp_atlas_info,
+    )
+
+
+def plot_dk2subject(subid, t1_image_path, parcellation_image_path, output_png_path):
+
+    plot_parc2subject(
+        subid,
+        "DK",
+        t1_image_path,
+        parcellation_image_path,
+        output_png_path,
+        data.dk_atlas_info,
+    )
+
+
+def plot_sc(subid, weights, lengths, output_fig):
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LogNorm
+    import numpy as np
+
+    fig, axs = plt.subplots(ncols=2, figsize=(16, 9))
+    fig.suptitle = f"SC {subid}"
+    weights = pd.read_csv(weights, index_col=0)
+    lengths = pd.read_csv(lengths, index_col=0)
+    im1 = axs[0].imshow(
+        weights, cmap="viridis", aspect="equal", interpolation="none", norm=LogNorm()
+    )
+    axs[0].set_title("Streamline count")
+    fig.colorbar(im1, ax=axs[0], shrink=0.5)
+    im2 = axs[1].imshow(
+        lengths,
+        cmap="viridis",
+        aspect="equal",
+        interpolation="none",
+        # norm=LogNorm()
+    )
+    axs[1].set_title("Streamline length")
+    fig.colorbar(im2, ax=axs[1], shrink=0.5)
+    fig.savefig(output_fig)
+
+
+import nibabel as nib
+
+fod = nib.load(
+    "/Volumes/bronkodata_work/hcpython/testsub/HCD0001305_V1_MR/T1w/Diffusion/MRTrix/wmfod_norm.nii.gz"
+)
+
+
+def plot_fod_histogram(fod, fod_norm, output_fig=None, ax=None):
+
+    if isinstance(ax, type(None)):
+        fig = plt.figure(layout="constrained", figsize=(6, 6))
+        ax = fig.add_subplot(111, aspect="auto")
+        return_fig = True
+    else:
+        return_fig = False
+
+    print(ax, type(ax))
+    if isinstance(fod, str):
+        fod = nib.load(fod)
+    if isinstance(fod_norm, str):
+        fod_norm = nib.load(fod_norm)
+
+    fod_norm_data = np.abs(fod_norm.get_fdata()).flatten()
+    fod_data = np.abs(fod.get_fdata()).flatten()
+    # Plot a histogram of the absolute values to visualize the distribution
+    ax.hist(fod_data, bins=1000, log=True, alpha=1, label="FOD", color="black")
+    ax.hist(
+        fod_norm_data, bins=1000, log=True, alpha=0.6, label="Normalized FOD", color="r"
+    )
+
+    x1, x2, y1, y2 = -1.5, -0.9, -2.5, -1.9  # subregion of the original image
+    axins = ax.inset_axes([0.5, 0.5, 0.47, 0.47], xlim=(0, 0.02))
+    axins.hist(fod_data, bins=1000, log=True, alpha=0.8, label="FOD", color="black")
+    axins.hist(
+        fod_norm_data, bins=1000, log=True, alpha=0.7, label="Normalized FOD", color="r"
+    )
+
+    axins.legend()
+    ax.indicate_inset_zoom(axins, edgecolor="k")
+
+    plt.title("Histogram of FOD Absolute Values")
+    plt.xlabel("Absolute Value")
+    plt.ylabel("Log Frequency")
+
+    if output_fig:
+        plt.savefig(output_fig)
+
+    if return_fig:
+        plt.close()
+        return fig
+
+
+def plot_sift_weights(sift_weights, ax=None, output_fig=None):
+    if ax is None:
+        fig, ax = plt.subplots()
+        return_fig = True
+    else:
+        return_fig = False
+
+    ax.hist(
+        sift_weights,
+        bins=1000,
+        log=True,
+        alpha=0.9,
+        label="SIFT Weights",
+        color="black",
+    )
+    ax.set_title("Histogram of SIFT Weights")
+
+    if output_fig:
+        plt.savefig(output_fig)
+    if return_fig:
+        plt.close()
+        return fig
+
+
+def plot_tck_metrics(sift_weights, fod, fod_norm, output_fig=None):
+    fig, axs = plt.subplots(1, 2, layout="constrained", figsize=(10, 5))
+    plotting.plot_sift_weights(sift_weights, ax=axs[0])
+    plotting.plot_fod_histogram(fod, fod_norm, ax=axs[1])
+
+    if output_fig:
+        fig.savefig(output_fig)
