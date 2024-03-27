@@ -259,3 +259,134 @@ def plot_tck_metrics(sift_weights, fod, fod_norm, output_fig=None):
 
     if output_fig:
         fig.savefig(output_fig)
+
+
+import numpy as np
+from dipy.io.streamline import load_tck
+from dipy.io.image import load_nifti
+from dipy.viz import window, actor
+
+
+def scene_plot_tractogram(tckfile, dwi_file, t1_file, slice_opacity=1, zoom=1.9):
+    tckfile = load_tck(tckfile, dwi_file)
+    data, affine = load_nifti(t1_file)
+
+    shape = data.shape
+
+    # Create a visualization scene
+    scene = window.Scene(background="white")
+
+    # Add tractography streamlines to the scene
+    stream_actor = actor.line(
+        tckfile.streamlines,
+        linewidth=0.1,
+        opacity=0.8,
+        fake_tube=True,
+    )
+    scene.add(stream_actor)
+    # Scale the streamlines actor, if applicable
+
+    # Slicer opacity
+    slicer_opacity = slice_opacity
+
+    # Create and configure the sagittal slice (lateral view)
+    image_actor_x = actor.slicer(data, affine)
+    image_actor_x.opacity(slicer_opacity)
+    x_midpoint = int(np.round(shape[0] / 2))
+    image_actor_x.display(x_midpoint)
+
+    # Create and configure the coronal slice (frontal view)
+    image_actor_y = actor.slicer(data, affine)
+    image_actor_y.opacity(slicer_opacity)
+    y_midpoint = int(np.round(shape[1] / 2))
+    image_actor_y.display(y=y_midpoint)
+
+    # Create and configure the axial slice (superior view)
+    image_actor_z = actor.slicer(data, affine)
+    image_actor_z.opacity(slicer_opacity)
+    z_midpoint = int(np.round(shape[2] / 2))
+    image_actor_z.display_extent(
+        0, shape[0] - 1, 0, shape[1] - 1, z_midpoint, z_midpoint
+    )
+
+    # Add slices to the scene
+    scene.add(image_actor_z)
+    scene.add(image_actor_x)
+    scene.add(image_actor_y)
+
+    scene.set_camera(
+        position=(637.38, -130.06, 18.40),
+        focal_point=(-0.40, -17.60, 18.40),
+        view_up=(0, 0, 1),
+    )
+    scene.zoom(zoom)
+
+    return scene
+
+
+def scene2mplarray(scene):
+    im = window.snapshot(scene, fname=None, size=(800, 800))
+    return im
+
+
+def plot_tractogram(tckfile, dwi_file, t1_file, out_path, zoom=1.9):
+    scene = scene_plot_tractogram(
+        tckfile, dwi_file, t1_file, slice_opacity=1, zoom=zoom
+    )
+
+    window.record(
+        scene,
+        out_path=out_path,
+        size=(600, 600),
+        reset_camera=False,
+        n_frames=4,
+        az_ang=91,
+        path_numbering=True,
+        magnification=2,
+    )
+
+
+import os
+import imageio
+from os.path import dirname, join
+
+
+def rotating_tractogram(
+    tckfile, dwi_file, t1_file, output_gif, zoom=1.9, opacity=0, duration=0.1
+):
+    scene = scene_plot_tractogram(
+        tckfile, dwi_file, t1_file, slice_opacity=opacity, zoom=zoom
+    )
+
+    n_frames = 36  # Number of frames for one complete turn
+    az_ang = 360 / n_frames  # Azimuthal angle for each frame to complete a 360° turn
+    png_dir = join(dirname(output_gif), "gif")
+    os.makedirs(png_dir, exist_ok=True)
+    window.record(
+        scene,
+        out_path=f"{png_dir}/gif_tractogram",
+        size=(600, 600),
+        reset_camera=False,
+        n_frames=n_frames,
+        az_ang=az_ang,
+        path_numbering=True,
+        magnification=2,
+    )
+    del scene
+
+    png_files = sorted(
+        [f for f in os.listdir(png_dir) if f.endswith(".png") and f.startswith("gif")]
+    )
+    # Read each PNG image and append it to the list of images
+    images = []
+    for filename in png_files:
+        image_path = os.path.join(png_dir, filename)
+        images.append(imageio.imread(image_path))
+
+    if not output_gif.endswith(".gif"):
+        output_gif += ".gif"
+    # Save the images as a GIF
+    imageio.mimsave(
+        output_gif, images, duration=duration, loop=0
+    )  # Adjust 'duration' as needed
+    os.system(f"rm -rf {png_dir}")
