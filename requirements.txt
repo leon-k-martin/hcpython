@@ -2,3 +2,5 @@ matplotlib
 nilearn
 snakemake
 nibabel
+dipy
+fury

@@ -149,6 +149,7 @@ logfiles = [
         "create_sc.done",
         "qc_sc.done",
         "qc_tractography.done",
+        "bedpostx.done",
     ]
 ]
 
@@ -240,6 +241,8 @@ rule verify_input_pairs:
             sequence=sequences,
             PEdir=PEdirs[1],
         ),
+    output:
+        done=join(logdir, "check_input_pairs.done"),
     shell:
         """
         pos_count=$(ls -1 {input.pos} | wc -l)
@@ -250,6 +253,7 @@ rule verify_input_pairs:
         else
             echo "Input datasets are provided in pairs."
         fi
+        echo $(date) > {output.done}
         """
 
 
@@ -270,7 +274,7 @@ rule check_even_slices:
         else
             echo "$is_even_slices" > {output.checkeven}
         fi
-            """
+        """
 
 
 ################################
@@ -288,6 +292,7 @@ rule calculate_mean:
         """
         fslmaths {input.raw} -Xmean -Ymean -Zmean {output.mean}
         fslmaths {output.mean} -Tmean {output.mean}
+        # echo $(date) > {output.done}
         """
 
 
@@ -342,6 +347,8 @@ ro_time = get_readout_time(input.nii, PEdir)
 # Merge the extracted b0 volumes
 shell(f"fslmerge -t {output.b0} {os.path.splitext(output.b0)[0]}_*.nii.gz")
 shell(f"rm {os.path.splitext(output.b0)[0]}_*.nii.gz")'
+
+        echo $(date) > {output.done}
         """
 
 
@@ -1390,6 +1397,34 @@ rule calculate_coverage:
 
 
 ################################
+# BedpostX                     #
+################################
+bedpostx_dir = join(outdir_T1w, "bedpostX")
+
+
+rule bedpostx:
+    input:
+        data=rules.threshold_data.output.data,
+        bvals=rules.rotate_bvecs_to_struct.output.bvals_struct,
+        bvecs=rules.rotate_bvecs_to_struct.output.bvec_struct,
+        mask=rules.new_nodif_brain_mask.output.mask,
+    output:
+        done=join(logdir, "bedpostx.done"),
+    params:
+        basename=join(bedpostx_dir, "{subid}"),
+    shell:
+        """
+        mkdir -p {params.basename}
+        cp {input.data} {params.basename}/data.nii.gz
+        cp {input.bvals} {params.basename}/bvals
+        cp {input.bvecs} {params.basename}/bvecs
+        cp {input.mask} {params.basename}/nodif_brain_mask.nii.gz
+        bedpostx {params.basename} -n 3 -b 1000 -w 1
+        touch {output.done}
+        """
+
+
+################################
 # MRTrix3                      #
 ################################
 
@@ -1420,10 +1455,15 @@ rule create_mif:
 
 
 rule tissue_segmentation:
-    """Run FSL-based tissue segmentation algorithm"""
+    """
+    Freesurfer-based tissue segmentation algorithm
+    ==============================================
+    Freesurfer's aparc+aseg.mgz is used as input for 5ttgen freesurfer. Works way better than FSL's 5ttgen fsl.
+    """
     input:
         t1_brain=join(dir_T1w, "T1w_acpc_dc_restore_brain.nii.gz"),
         t2_brain=join(dir_T1w, "T2w_acpc_dc_restore_brain.nii.gz"),
+        aseg=join(dir_T1w, "aparc+aseg.nii.gz"),
     output:
         seg=join(MRTrix_out, "5TT.mif"),
         log=join(logdir, "tissue_segmentation.done"),
@@ -1435,8 +1475,15 @@ rule tissue_segmentation:
         runtime=10,  # in minutes
     shell:
         """
-        5ttgen fsl {input.t1_brain} {output.seg} -t2 {input.t2_brain} -premasked -nthreads {threads}
         echo $(date) > {output.log}
+
+        # 5ttgen fsl {input.t1_brain} {output.seg} -t2 {input.t2_brain} -premasked -nthreads {threads}
+
+        5ttgen freesurfer {input.aseg} {output.seg} -lut $(python -c 'from hcpy import data; print(data.fs_lut)')
+
+        5tt2vis {output.seg} {output.seg}.nii.gz -bg 0 -cgm 0.1 -sgm 0.2 -wm 0.3 -csf 0.4 -path 0.5
+
+        echo $(5ttcheck {output.seg}) >> {output.log}
         """
 
 
@@ -1516,7 +1563,7 @@ rule extract_response_functions:
 rule generate_mask:
     """Create DWI brain mask,"""
     input:
-        dwi_bias=join(MRTrix_out, "DWI_bias_ants.mif"),
+        dwi_bias=rules.bias_correction.output.dwi_bias,
     output:
         dwi_mask=join(MRTrix_out, "DWI_mask.mif"),
         log=join(logdir, "generate_mask.done"),
@@ -1621,7 +1668,6 @@ rule run_tractography:
         tracks=join(MRTrix_out, "100M_tracks.tck"),
         donwsampled_tracks=join(MRTrix_out, "200k_tracks.tck"),
         seeds=join(MRTrix_out, "seeds.txt"),
-        log=join(MRTrix_out, "tckgen_log.txt"),
         done=join(logdir, "run_tractography.done"),
     group:
         "tractography"
@@ -1638,7 +1684,7 @@ rule run_tractography:
         -nthreads {threads} \
         -algorithm iFOD2 \
         -select 100M \
-        -cutoff 0.06 \
+        -cutoff 0.03 \
         -minlength 2.5 \
         -maxlength 250.0 \
         -act {input.seg} \
@@ -1647,22 +1693,22 @@ rule run_tractography:
         -max_attempts_per_seed 1000 \
         -seed_dynamic {input.fod_wm_norm} \
         -output_seeds {output.seeds} \
-        {input.fod_wm_norm} {output.tracks} |& tee {output.log}
+        {input.fod_wm_norm} {output.tracks}
 
         tckedit {output.tracks} -number 200k {output.donwsampled_tracks}
         echo $(date) > {output.done}
         """
 
 
-rule qc_tractography:
+rule qc_fod:
     input:
         tracks=rules.run_tractography.output.tracks,
         t1=join(dir_T1w, "T1w_acpc_dc_restore_brain.nii.gz"),
         fod_wm=rules.generate_fod.output.fod_wm,
         fod_wm_norm=rules.normalize_fod.output.fod_wm_norm,
     output:
-        fig=join(qcdir, "tractography.png"),
-        log=join(logdir, "qc_tractography.done"),
+        fig=join(qcdir, "FOD.png"),
+        log=join(logdir, "qc_fod.done"),
     shell:
         """
         mrconvert -force {input.fod_wm} {input.fod_wm}.nii.gz
@@ -1698,6 +1744,34 @@ rule run_sift:
             -act {input.seg} \
             -nthreads {threads} -force -info
         echo $(date) > {output.done}
+        """
+
+
+rule qc_tractography:
+    input:
+        tracks=rules.run_tractography.output.tracks,
+        t1=join(dir_T1w, "T1w_acpc_dc_restore_brain.nii.gz"),
+        dwi_bias=rules.bias_correction.output.dwi_bias,
+        sift_weights=rules.run_sift.output.sift_weights,
+    output:
+        gif=join(qcdir, "tractography.gif"),
+        log=join(logdir, "qc_tractography.done"),
+    params:
+        fig=join(qcdir, "tractogram"),
+    shell:
+        """
+        mrconvert -force {input.dwi_bias} {input.dwi_bias}.nii.gz
+
+        THRESHOLD=$(python -c 'from hcpy import utils; print(utils.get_sift_threshold("{input.sift_weights}"))')
+
+        tckedit -force {input.tracks} {input.tracks}.sift.tck -tck_weights_in {input.sift_weights} -minweight $THRESHOLD
+
+        python -c '
+from hcpy import plotting
+plotting.rotating_tractogram("{input.tracks}.sift.tck", "{input.dwi_bias}.nii.gz", "{input.t1}", output_gif="{output.gif}")
+
+plotting.plot_tractogram("{input.tracks}.sift.tck", "{input.dwi_bias}.nii.gz", "{input.t1}", out_path="{params.fig}")'
+        echo $(date) > {output.log}
         """
 
 
@@ -1884,6 +1958,8 @@ rule qc_sc:
         lengths=rules.create_sc.output.lengths,
         weights_dk=rules.create_sc_dk.output.weights,
         lengths_dk=rules.create_sc_dk.output.lengths,
+        t1=join(dir_T1w, "T1w_acpc_dc_restore_brain.nii.gz"),
+        dwi=rules.bias_correction.output.dwi_bias,
     output:
         fig=join(qcdir, "qc_parc-mmp_sc.png"),
         fig_dk=join(qcdir, "qc_parc-dk_sc.png"),

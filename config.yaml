@@ -11,6 +11,7 @@ logdir: /Volumes/bronkodata_work/hcpython/testsub/log
 
 nthreads: 8
 
+ntracks: 100000000
 b0maxbval: 50
 b0dist: 45
 
