@@ -3,6 +3,8 @@ import pandas as pd
 
 DATA_DIR = dirname(realpath(__file__))
 
+fs_lut = join(DATA_DIR, "FreeSurferColorLUT.txt")
+
 mmp_annot_lh = join(DATA_DIR, "lh.HCP-MMP1.annot")
 mmp_annot_rh = join(DATA_DIR, "rh.HCP-MMP1.annot")
 
