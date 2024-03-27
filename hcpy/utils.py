@@ -125,3 +125,14 @@ def get_b0_acqparms(f_nii, bval, b0maxbval=50, b0dist=45):
     for i in b0_indices:
         acqparams.append(get_acqparams(f_nii))
     return acqparams, b0_indices, log
+
+
+def get_sift_threshold(sift_weights, n_tck=200000):
+    if isinstance(sift_weights, str):
+        sift_weights = np.loadtxt(sift_weights)
+    # Calculate the index for the kth largest element
+    k = len(sift_weights) - n_tck  # 99,800,000
+    # Use numpy.partition to find the kth largest weight
+    # The kth largest will be at index k in the partitioned array
+    threshold = np.partition(sift_weights, k)[k]
+    return threshold
