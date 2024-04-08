@@ -1,5 +1,5 @@
 freesurferhome: /Applications/freesurfer/7.2.0
-workingdir: /Volumes/bronkodata_work/HCP-D/fmriresults01/HCD0001305_V1_MR
+workingdir: /Volumes/bronkodata_work/HCP-D
 
 rawdir: /Volumes/bronkodata_work/HCP-D/imagingcollection01
 
@@ -8,6 +8,7 @@ freesurferdir: /Volumes/bronkodata_work/HCP-D/fmriresults01/{subid}/T1w
 
 outdir: /Volumes/bronkodata_work/hcpython/testsub
 logdir: /Volumes/bronkodata_work/hcpython/testsub/log
+benchmarkdir: /Volumes/bronkodata_work/hcpython/testsub/benchmarks
 
 nthreads: 8
 
