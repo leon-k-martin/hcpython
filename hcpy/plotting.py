@@ -160,7 +160,11 @@ def plot_sc(subid, weights, lengths, output_fig):
     weights = pd.read_csv(weights, index_col=0)
     lengths = pd.read_csv(lengths, index_col=0)
     im1 = axs[0].imshow(
-        weights, cmap="viridis", aspect="equal", interpolation="none", norm=LogNorm()
+        weights,
+        cmap="viridis",
+        aspect="equal",
+        interpolation="none",
+        # norm=LogNorm()
     )
     axs[0].set_title("Streamline count")
     fig.colorbar(im1, ax=axs[0], shrink=0.5)
