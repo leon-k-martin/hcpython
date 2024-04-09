@@ -6,9 +6,18 @@ import hcpy
 from hcpy.utils import *
 from hcpy import data
 
+##### module name #####
+module_name = "Diffusion2SC"
+
+# SDIR = os.path.realpath(os.path.dirname(srcdir("Snakefile")))
+# shell.prefix(f"set -eo pipefail;")
+
 
 # Define global variables and configurations
 configfile: "config.yaml"
+
+
+report: "workflow.rst"
 
 
 topup_conf = hcpy.config.b02b0
@@ -127,7 +136,7 @@ qcfiles = [
 logfiles = [
     join(logdir, f)
     for f in [
-        "create_series_files.done",
+        # "create_series_files.done",
         # "tkregister2.done",
         # "bbregister.done",
         # "get_transformation_matrices.done",
@@ -177,7 +186,7 @@ rule all:
     """
     input:
         expand(
-            logfiles + endfiles,
+            endfiles,
             subid=subids,
             sequence=sequences,
             PEdir=PEdirs,
@@ -1501,6 +1510,8 @@ rule tissue_segmentation:
     The 5TT image is used for anatomically constrained tractography (ACT).
 
     The Hybrid Surface and Volume Segemntation (HSVS) is chosen, using FreeSurfer and FSL tools. This is the preferred algorithm by the MRTrix authors.
+
+    TODO: Split into 3 methods and 1 qc rule (+group them).
     """
     input:
         t1_brain=join(dir_T1w, "T1w_acpc_dc_restore_brain.nii.gz"),
@@ -1510,7 +1521,7 @@ rule tissue_segmentation:
         seg=join(MRTrix_out, "5TT.mif"),
         seg_vis=join(MRTrix_out, "5TT_concat.nii.gz"),
         seg_freesurfer=join(MRTrix_out, "5TT_freesurfer.mif"),
-        seg_vis_freesurfer=join(MRTrix_out, "5TT_freesurfer_concat.ni.gz"),
+        seg_vis_freesurfer=join(MRTrix_out, "5TT_freesurfer_concat.nii.gz"),
         seg_fsl=join(MRTrix_out, "5TT_FSL.mif"),
         seg_vis_fsl=join(MRTrix_out, "5TT_FSL_concat.nii.gz"),
         log=join(logdir, "tissue_segmentation.done"),
@@ -1526,7 +1537,7 @@ rule tissue_segmentation:
         """
         echo $(date) > {output.log}
 
-        5ttgen hsvs {params.fs_dir} {ouput.seg}
+        5ttgen hsvs {params.fs_dir} {output.seg}
 
         5ttgen fsl {input.t1_brain} {output.seg_fsl} -t2 {input.t2_brain} -premasked -nthreads {threads} -force
 
@@ -1538,15 +1549,16 @@ rule tissue_segmentation:
 
         5tt2vis {output.seg_fsl} {output.seg_vis_fsl} -bg 0 -cgm 0.1 -sgm 0.2 -wm 0.3 -csf 0.4 -path 0.5 -force
 
-        python -c '
-from nilearn import plotting
-import matplotlib.pyplot as plt
-fig, axs = plt.subplots(nrows=3)
-plotting.plot_stat_map({output.seg_vis}, bg_img={input.t1_brain}, cmap='viridis',alpha=.7, colorbar=True, title="5TT segmentation (HSVS)", cut_coords=(-10, -18, 10), axes=axs[0])
+#         python -c '
+# from nilearn import plotting
+# import matplotlib.pyplot as plt
+# fig, axs = plt.subplots(nrows=3)
 
-plotting.plot_stat_map({output.seg_vis_fsl}, bg_img={input.t1_brain}, cmap='viridis',alpha=.7, colorbar=True, title="5TT segmentation (FSL)", cut_coords=(-10, -18, 10), axes=axs[1])
+# plotting.plot_stat_map({output.seg_vis}, bg_img={input.t1_brain}, cmap='viridis',alpha=0.7, colorbar=True, title="5TT segmentation (HSVS)", cut_coords=(-10, -18, 10), axes=axs[0])
 
-plotting.plot_stat_map({output.seg_vis_freesurfer}, bg_img={input.t1_brain}, cmap='viridis',alpha=.7, colorbar=True, title="5TT segmentation (Freesurfer)", cut_coords=(-10, -18, 10), axes=axs[2])'
+# plotting.plot_stat_map({output.seg_vis_fsl}, bg_img={input.t1_brain}, cmap='viridis',alpha=0.7, colorbar=True, title="5TT segmentation (FSL)", cut_coords=(-10, -18, 10), axes=axs[1])
+
+# plotting.plot_stat_map({output.seg_vis_freesurfer}, bg_img={input.t1_brain}, cmap='viridis',alpha=0.7, colorbar=True, title="5TT segmentation (Freesurfer)", cut_coords=(-10, -18, 10), axes=axs[2])'
 
         echo $(5ttcheck {output.seg}) >> {output.log}
         """
