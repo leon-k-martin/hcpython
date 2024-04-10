@@ -120,7 +120,6 @@ subids = [
     # "HCD2812352_V1_MR",
 ]
 
-
 outfiles = [
     join(outdir_T1w, "nodif_brain_mask_new.nii.gz"),
     join(outdir_T1w, "data_masked_thresh.nii.gz"),
@@ -736,12 +735,12 @@ rule eddy:
         fwhm=0,
         topup_basename=rules.topup.output.field.replace("_field.nii.gz", ""),
         eddy_basename=join(eddydir, "eddy_unwarped_images"),
-        nthreads=config["nthreads"],
     output:
         eddy=join(eddydir, "eddy_unwarped_images.nii.gz"),
         bvecs=join(eddydir, "eddy_unwarped_images.eddy_rotated_bvecs"),
     benchmark:
         join(config["benchmarkdir"], "{subid}", "eddy.benchmark.txt")
+    threads: 32
     resources:
         mem_mb=12 * 1000,
     shell:
@@ -756,7 +755,7 @@ rule eddy:
             --fwhm={params.fwhm} \
             --topup={params.topup_basename} \
             --out={params.eddy_basename} \
-            --nthr={params.nthreads} \
+            --nthr={nthreads} \
             --verbose
         """
 
@@ -1748,6 +1747,8 @@ rule run_tractography:
         done=join(logdir, "run_tractography.done"),
     group:
         "tractography"
+    benchmark:
+        join(config["benchmarkdir"], "{subid}", "tckgen.benchmark.txt")
     threads: 32
     # container:
     #     config["containers"]["mrtrix"]
