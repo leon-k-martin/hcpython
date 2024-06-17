@@ -12,7 +12,6 @@ module_name = "Diffusion2SC"
 # SDIR = os.path.realpath(os.path.dirname(srcdir("Snakefile")))
 # shell.prefix(f"set -eo pipefail;")
 
-
 # Define global variables and configurations
 configfile: "config.yaml"
 
@@ -22,6 +21,7 @@ report: "workflow.rst"
 
 topup_conf = hcpy.config.b02b0
 
+# input files
 f_dwi = join(
     config["rawdir"],
     "{subid}",
@@ -54,31 +54,18 @@ logdir = join(subdir, "Diffusion", "log")
 outdir_T1w = join(subdir, "T1w", "Diffusion")
 parcdir = join(outdir_T1w, "parc")
 
+dir_T1w = join(config["t1dir"], "{subid}", "T1w")
+
 benchmarkdir = join(config["benchmarkdir"], "{subid}")
 os.makedirs(benchmarkdir, exist_ok=True)
 
+# output_files
 f_b0 = join(rawdatadir, "{subid}_{sequence}_{PEdir}_b0.nii.gz")
-
 f_dwi_res = join(rawdatadir, "{subid}_{sequence}_{PEdir}_res.nii.gz")
 
 f_checkeven = join(config["logdir"], "{subid}", "{subid}_{sequence}_{PEdir}.checkeven")
 checkfiles = [f_checkeven]
 
-# QC
-
-f_qc_topup = join(qcdir, "{subid}_topup.svg")
-f_qc_bvecs = join(qcdir, "{subid}_bvecs.html")
-
-
-# topup
-f_b0_log = join(topupdir, "extractedb0.txt")
-# f_b0_index = join(topupdir, "b0_index.txt")
-f_b0_posneg = join(topupdir, "Pos_Neg_b0.nii.gz")
-f_b0_pos = join(topupdir, "Pos_b0.nii.gz")
-f_b0_neg = join(topupdir, "Neg_b0.nii.gz")
-f_acqparams_topup = join(topupdir, "acqparams.txt")
-f_topup_field = join(topupdir, "topup_Pos_Neg_b0_field.nii.gz")
-f_b0_hifi = join(topupdir, "hifib0.nii.gz")
 
 # eddy
 f_index = join(eddydir, "index.txt")
@@ -89,18 +76,6 @@ f_bvecs_posneg = join(eddydir, "Pos_Neg.bvecs")
 f_acqparams_eddy = join(eddydir, "acqparams.txt")
 f_eddy = join(eddydir, "eddy_unwarped_images.nii.gz")
 
-# PostEddy
-dir_T1w = join(config["t1dir"], "{subid}", "T1w")
-f_T1w = join(dir_T1w, "T1w_acpc_dc.nii.gz")
-f_T1w_restore = join(dir_T1w, "T1w_acpc_dc_restore.nii.gz")
-f_T1w_restore_brain = join(dir_T1w, "T1w_acpc_dc_restore_brain.nii.gz")
-
-f_BiasField = join(dir_T1w, "BiasField_acpc_dc.nii.gz")
-f_FreeSurferBrainMask = join(dir_T1w, "brainmask_fs.nii.gz")
-
-# f_RegOutput = join(subdir, "Diffusion", "reg", "RegOutput")
-# f_QAImage = join(subdir, "Diffusion", "reg", "T1wMulEPI")
-
 
 # MRTrix
 MRTrix_out = join(outdir_T1w, "MRTrix")
@@ -108,75 +83,26 @@ MRTrix_log = join(MRTrix_out, "log")
 
 sequences = config["ImagingSequences"]
 PEdirs = config["PhaseEncodingDirections"]
-subids = [
-    "HCD0001305_V1_MR",
-    "HCD0429343_V1_MR",
-    # "HCD0946868_V1_MR",
-    # "HCD1759571_V1_MR",
-    # "HCD1761356_V1_MR",
-    # "HCD1765970_V1_MR",
-    # "HCD1838567_V1_MR",
-    # "HCD2704551_V1_MR",
-    # "HCD2812352_V1_MR",
-]
-
-outfiles = [
-    join(outdir_T1w, "nodif_brain_mask_new.nii.gz"),
-    join(outdir_T1w, "data_masked_thresh.nii.gz"),
-    join(outdir_T1w, "bvals"),
-    join(outdir_T1w, "bvecs"),
-]
-qcfiles = [
-    join(logdir, "qc1.done"),
-    # join(logdir, "qc2.done"),
-    join(logdir, "qc3.done"),
-    join(logdir, "qc4.done"),
-]
-logfiles = [
-    join(logdir, f)
-    for f in [
-        # "create_series_files.done",
-        # "tkregister2.done",
-        # "bbregister.done",
-        # "get_transformation_matrices.done",
-        # "apply_warp3.done",
-        # "remove_bias.done",
-        # "diff_res_structural_space.done",
-        # "diff_res_mask.done",
-        # "dilate_mask.done",
-        # "rotate_bvecs_to_struct.done",
-        # "register_diff_to_T1w.done",
-        # "adjust_fov_mask.done",
-        # "fov_mask_data.done",
-        # "threshold_data.done",
-        # "new_nodif_brain_mask.done",
-        # "calculate_coverage.done",
-        # "create_mif.done",
-        # "tissue_segmentation.done",
-        # "bias_correction.done",
-        # "create_mean_b0.done",
-        # "extract_response_functions.done",
-        # "generate_mask.done",
-        # "generate_fod.done",
-        # "normalize_fod.done",
-        # "run_tractography.done",
-        # "run_sift.done",
-        # "mmp2surf.done",
-        # "mmp2vol.done",
-        # "mmp_vol_to_mrtrix.done",
-        # "desikan_vol_to_mrtrix.done",
-        # "qc_parc.done",
-        # "create_sc.done",
-        # "qc_sc.done",
-        # "qc_tractography.done",
-        # "bedpostx.done",
-    ]
-]
 
 endfiles = [
     join(MRTrix_out, "sub-{subid}_parc-mmp1_sc_weights.csv"),
     join(MRTrix_out, "sub-{subid}_parc-mmp1_sc_lengths.csv"),
 ]
+qcfiles = [
+    join(qcdir, "basic_preproc_norm_intensity.svg"),
+    join(qcdir, "{subid}_topup.svg"),
+    join(logdir, "qc3.done"),
+    join(qcdir, "qc4.png"),
+    join(qcdir, "FOD.png"),
+    join(qcdir, "tractography.gif"),
+    join(qcdir, "qc_mmp.png"),
+    join(qcdir, "qc_parc-mmp_sc.png"),
+    join(qcdir, "{subid}_bvecs.html"),
+    join(qcdir, "basic_preproc_norm_intensity.svg"),
+]
+
+
+subids = [i for i in os.listdir(config["rawdir"]) if i.startswith("HCD")]
 
 
 rule all:
@@ -201,43 +127,81 @@ rule create_series_files:
         pos_corr=join(subdir, "Diffusion", "rawdata", "Pos_SeriesCorrespVolNum.txt"),
         neg_corr=join(subdir, "Diffusion", "rawdata", "Neg_SeriesCorrespVolNum.txt"),
         done=join(logdir, "create_series_files.done"),
-    run:
-        import json
-        import nibabel as nib
-        from hcpy.utils import get_pedir
+    shell:
+        """
+        python -c '
+import json, nibabel as nib, os
+from hcpy.utils import get_pedir
 
-        # Initialize lists to store volume numbers
-        pos_vols = []
-        neg_vols = []
+pos_vols = []
+neg_vols = []
 
-        # Process each image to categorize them and count volumes
-        for img in input.imgs:
-            volumes = nib.load(img).shape[3]
-            pedir = get_pedir(img)
-            if "-" in pedir:
-                neg_vols.append(volumes)
-            else:
-                pos_vols.append(volumes)
+pos_corr_file = open("{output.pos_corr}", "w")
+neg_corr_file = open("{output.neg_corr}", "w")
+pos_file = open("{output.pos}", "w")
+neg_file = open("{output.neg}", "w")
 
-                # Ensure volumes are sorted to match pairs correctly
-        pos_vols.sort()
-        neg_vols.sort()
+for img in "{input.imgs}".split(" "):
+    volumes = nib.load(img).shape[3]
+    pedir = get_pedir(img)
+    if "-" in pedir:
+        neg_vols.append(volumes)
+    else:
+        pos_vols.append(volumes)
 
-        with open(output.pos, "w") as pos_file, open(output.neg, "w") as neg_file, open(
-            output.pos_corr, "w"
-        ) as pos_corr_file, open(output.neg_corr, "w") as neg_corr_file:
-            for vol_pos, vol_neg in zip(pos_vols, neg_vols):
-                min_vol = min(vol_pos, vol_neg)
-                pos_file.write(f"{min_vol} {vol_pos}\n")
-                neg_file.write(f"{min_vol} {vol_neg}\n")
+pos_vols.sort()
+neg_vols.sort()
 
-                if vol_pos > 0:
-                    pos_corr_file.write(f"{min_vol}\n")
+for vol_pos, vol_neg in zip(pos_vols, neg_vols):
+    min_vol = min(vol_pos, vol_neg)
+    pos_file.write(f"{{min_vol}} {{vol_pos}}\\n")
+    neg_file.write(f"{{min_vol}} {{vol_neg}}\\n")
+    if vol_pos > 0:
+        pos_corr_file.write(f"{{min_vol}}\\n")
+    if vol_neg > 0:
+        neg_corr_file.write(f"{{min_vol}}\\n")
 
-                if vol_neg > 0:
-                    neg_corr_file.write(f"{min_vol}\n")
+' && echo $(date) > {output.done}
+        """
 
-        shell("echo $(date) > {output.done}")
+
+# run:
+#     import json
+#     import nibabel as nib
+#     from hcpy.utils import get_pedir
+
+#     # Initialize lists to store volume numbers
+#     pos_vols = []
+#     neg_vols = []
+
+#     # Process each image to categorize them and count volumes
+#     for img in input.imgs:
+#         volumes = nib.load(img).shape[3]
+#         pedir = get_pedir(img)
+#         if "-" in pedir:
+#             neg_vols.append(volumes)
+#         else:
+#             pos_vols.append(volumes)
+
+#             # Ensure volumes are sorted to match pairs correctly
+#     pos_vols.sort()
+#     neg_vols.sort()
+
+#     with open(output.pos, "w") as pos_file, open(output.neg, "w") as neg_file, open(
+#         output.pos_corr, "w"
+#     ) as pos_corr_file, open(output.neg_corr, "w") as neg_corr_file:
+#         for vol_pos, vol_neg in zip(pos_vols, neg_vols):
+#             min_vol = min(vol_pos, vol_neg)
+#             pos_file.write(f"{min_vol} {vol_pos}\n")
+#             neg_file.write(f"{min_vol} {vol_neg}\n")
+
+#             if vol_pos > 0:
+#                 pos_corr_file.write(f"{min_vol}\n")
+
+#             if vol_neg > 0:
+#                 neg_corr_file.write(f"{min_vol}\n")
+
+#     shell("echo $(date) > {output.done}")
 
 
 rule verify_input_pairs:
@@ -381,24 +345,39 @@ rule rescale_series_conditionally:
     input:
         dwi=f_dwi,
         json=f_dwi.replace(".nii.gz", ".json"),
-        scaleS=rules.meants.output.meants,
+        scaleS=rules.meants.output.meants.replace("{PEdir}", PEdirs[0]).replace(
+            "{sequence}", sequences[0]
+        ),
     output:
         rescaled_dwi=f_dwi_res,
         rescaled_json=f_dwi_res.replace(".nii.gz", ".json"),
-    run:
-        import subprocess
+    shell:
+        """
+        # Retrieve the scale factor from the specific mean time series file
+        scale_factor=$(cat {input.scaleS})
 
-        # Check if the current series and PEdir are the first ones in their respective lists
-        rescale = (
-            input.scaleS.replace("{rawdir}", config["rawdir"])
-            .replace("{subid}", wildcards.subid)
-            .replace("{PEdir}", PEdirs[0])
-            .replace("{sequence}", sequences[0])
-        )
-        cmd = f"fslmaths {input.dwi} -mul $(cat {rescale}) -div $(cat {input.scaleS}) {output.rescaled_dwi}"
-        print(cmd)
-        shell(cmd)
-        shell(f"cp {input.json} {output.rescaled_json}")
+        # Apply the scaling factor using fslmaths to all DWI images
+        fslmaths {input.dwi} -mul $scale_factor -div $scale_factor {output.rescaled_dwi}
+
+        # Copy the JSON file to the new location
+        cp {input.json} {output.rescaled_json}
+        """
+
+
+# run:
+#     import subprocess
+
+#     # Check if the current series and PEdir are the first ones in their respective lists
+#     rescale = (
+#         input.scaleS.replace("{rawdir}", config["rawdir"])
+#         .replace("{subid}", wildcards.subid)
+#         .replace("{PEdir}", PEdirs[0])
+#         .replace("{sequence}", sequences[0])
+#     )
+#     cmd = f"fslmaths {input.dwi} -mul $(cat {rescale}) -div $(cat {input.scaleS}) {output.rescaled_dwi}"
+#     print(cmd)
+#     shell(cmd)
+#     shell(f"cp {input.json} {output.rescaled_json}")
 
 
 ##########################
@@ -464,10 +443,10 @@ rule merge_data:
     output:
         # topup
         topup_acqparams=join(topupdir, "acqparams.txt"),
-        b0_log=f_b0_log,
+        b0_log=join(topupdir, "extractedb0.txt"),
         b0_posneg=join(topupdir, "Pos_Neg_b0.nii.gz"),
-        b0_pos=f_b0_pos,
-        b0_neg=f_b0_neg,
+        b0_pos=join(topupdir, "Pos_b0.nii.gz"),
+        b0_neg=join(topupdir, "Neg_b0.nii.gz"),
         # eddy
         eddy_acqparams=f_acqparams_eddy,
         img_posneg=f_img_posneg,
@@ -599,11 +578,12 @@ rule qc_bvecs_merged:
         bvecs=f_bvecs_posneg,
         bvals=f_bvals_posneg,
     output:
-        fig=f_qc_bvecs,
-    run:
-        from hcpy.plotting import plot_bvecs
-
-        plot_bvecs(input.bvecs, bvals=input.bvals, fout=output.fig)
+        fig=join(qcdir, "{subid}_bvecs.html"),
+    shell:
+        """ python -c '
+from hcpy.plotting import plot_bvecs
+plot_bvecs("{input.bvecs}", bvals="{input.bvals}", fout="{output.fig}")'
+        """
 
 
 rule qc1:
@@ -619,25 +599,30 @@ rule qc1:
     output:
         fig=join(qcdir, "basic_preproc_norm_intensity.svg"),
         log=join(logdir, "qc1.done"),
-    run:
-        from nilearn import plotting
-        import matplotlib.pyplot as plt
-        import matplotlib
-        from nilearn.image import concat_imgs, index_img
+    shell:
+        """python -c '
+from nilearn import plotting
+import matplotlib.pyplot as plt
+import matplotlib
+from nilearn.image import concat_imgs, index_img
+matplotlib.use("agg")
+input_dwis = "{input.dwis}".split(" ")
+input_rescaled = "{input.rescaled_dwis}".split(" ")
+input_b0s = "{input.b0s}".split(" ")
+fig, axs = plt.subplots(nrows=len(input_dwis), ncols=3, figsize=(16, 9))
 
-        matplotlib.use("agg")
-        fig, axs = plt.subplots(nrows=len(input.dwis), ncols=3, figsize=(16, 9))
+i = 0
+for dwi, res_dwi, b0 in zip(input_dwis, input_rescaled, input_b0s):
+    # Use a non-interactive backend
+    plotting.plot_stat_map(index_img(dwi, 0), axes=axs[i, 0])
+    plotting.plot_stat_map(index_img(res_dwi, 0), axes=axs[i, 1])
+    plotting.plot_stat_map(index_img(b0, 0), axes=axs[i, 2])
+    i += 1
 
-        i = 0
-        for dwi, res_dwi, b0 in zip(input.dwis, input.rescaled_dwis, input.b0s):
-            # Use a non-interactive backend
-            plotting.plot_stat_map(index_img(dwi, 0), axes=axs[i, 0])
-            plotting.plot_stat_map(index_img(res_dwi, 0), axes=axs[i, 1])
-            plotting.plot_stat_map(index_img(b0, 0), axes=axs[i, 2])
-            i += 1
+fig.savefig("{output.fig}")'
 
-        fig.savefig(output.fig)
-        shell("touch {output.log}")
+    echo $(date) > {output.log}
+    """
 
 
 ################################
@@ -652,7 +637,7 @@ rule topup:
         acqparams=rules.merge_data.output.topup_acqparams,
         topup_conf=topup_conf,
     output:
-        field=f_topup_field,
+        field=join(topupdir, "topup_Pos_Neg_b0_field.nii.gz"),
     shell:
         """
         topupdir=$(dirname {output.field})
@@ -663,11 +648,11 @@ rule topup:
 rule get_hifi_b0:
     input:
         field=rules.topup.output.field,
-        b0_pos=f_b0_pos,
-        b0_neg=f_b0_neg,
+        b0_pos=rules.merge_data.output.b0_pos,
+        b0_neg=rules.merge_data.output.b0_neg,
         acqparams=rules.merge_data.output.topup_acqparams,
     output:
-        b0_hifi=f_b0_hifi,
+        b0_hifi=join(topupdir, "hifib0.nii.gz"),
     shell:
         """
         topupdir=$(dirname {input.field})
@@ -688,26 +673,26 @@ rule bet_hifi_b0:
         """
 
 
-rule qc2:
-    input:
-        nodif_brain=rules.bet_hifi_b0.output.nodif_brain,
-        nodif_brain_mask=rules.bet_hifi_b0.output.nodif_brain.replace(
-            ".nii.gz", "_mask.nii.gz"
-        ),
-    output:
-        fig=f_qc_topup,
-    run:
-        from nilearn import plotting
-        import matplotlib.pyplot as plt
-        import matplotlib
-        from nilearn.image import concat_imgs, index_img
+# rule qc2:
+#     input:
+#         nodif_brain=rules.bet_hifi_b0.output.nodif_brain,
+#         nodif_brain_mask=rules.bet_hifi_b0.output.nodif_brain.replace(
+#             ".nii.gz", "_mask.nii.gz"
+#         ),
+#     output:
+#         fig=join(qcdir, "{subid}_topup.svg"),
+#     run:
+#         from nilearn import plotting
+#         import matplotlib.pyplot as plt
+#         import matplotlib
+#         from nilearn.image import concat_imgs, index_img
 
-        # Use a non-interactive backend
-        matplotlib.use("agg")
-        fig, axs = plt.subplots(nrows=2, figsize=(16, 9))
-        plotting.plot_anat(input.nodif_brain, axes=axs[0])
-        plotting.plot_roi(input.nodif_brain_mask, input.nodif_brain, axes=axs[1])
-        fig.savefig(output.fig)
+#         # Use a non-interactive backend
+#         matplotlib.use("agg")
+#         fig, axs = plt.subplots(nrows=2, figsize=(16, 9))
+#         plotting.plot_anat(input.nodif_brain, axes=axs[0])
+#         plotting.plot_roi(input.nodif_brain_mask, input.nodif_brain, axes=axs[1])
+#         fig.savefig(output.fig)
 
 
 ################################
@@ -755,7 +740,7 @@ rule eddy:
             --fwhm={params.fwhm} \
             --topup={params.topup_basename} \
             --out={params.eddy_basename} \
-            --nthr={nthreads} \
+            --nthr={threads} \
             --verbose
         """
 
@@ -772,34 +757,35 @@ select_best_b0 = False
 
 
 # eddy_postproc.sh
-rule qc3:
-    """Eddy qc report"""
-    input:
-        eddy=rules.eddy.output.eddy,
-        index=f_index,
-        acqparams=f_acqparams_eddy,
-        mask=join(topupdir, "nodif_brain_mask.nii.gz"),
-        bvals=f_bvals_posneg,
-        bvecs=join(eddydir, "eddy_unwarped_images.eddy_rotated_bvecs"),
-        field=f_topup_field,
-    output:
-        report=directory(join(qcdir, "eddy")),
-        log=join(logdir, "qc3.done"),
-    run:
-        shell("rm -rf {output.report}")
-        cmd = (
-            f"eddy_quad {input.eddy.replace('.nii.gz', '')}"
-            + f" -idx {input.index}"
-            + f" -par {input.acqparams}"
-            + f" -m {input.mask}"
-            + f" -b {input.bvals}"
-            + f" -g {input.bvecs}"
-            + f" -f {input.field}"
-            + f" -o {output.report}"
-            + " -v"
-        )
-        shell(cmd)
-        shell("touch {output.log}")
+# rule qc3:
+#     """Eddy qc report"""
+#     input:
+#         eddy=rules.eddy.output.eddy,
+#         index=f_index,
+#         acqparams=f_acqparams_eddy,
+#         mask=join(topupdir, "nodif_brain_mask.nii.gz"),
+#         bvals=f_bvals_posneg,
+#         bvecs=join(eddydir, "eddy_unwarped_images.eddy_rotated_bvecs"),
+#         field=rules.topup.output.field,
+#     output:
+#         log=join(logdir, "qc3.done"),
+#     params:
+#         report=join(qcdir, "eddy"),
+#     run:
+#         shell("rm -rf {params.report}")
+#         cmd = (
+#             f"eddy_quad {input.eddy.replace('.nii.gz', '')}"
+#             + f" -idx {input.index}"
+#             + f" -par {input.acqparams}"
+#             + f" -m {input.mask}"
+#             + f" -b {input.bvals}"
+#             + f" -g {input.bvecs}"
+#             + f" -f {input.field}"
+#             + f" -o {params.report}"
+#             + " -v"
+#         )
+#         shell(cmd)
+#         shell("touch {output.log}")
 
 
 rule combine_data:
@@ -976,8 +962,8 @@ rule mask_out_data:
 rule epi_reg_dof:
     """b0 FLIRT BBR and bbregister to T1w"""
     input:
-        t1=f_T1w,
-        t1_brain=f_T1w_restore_brain,
+        t1=join(dir_T1w, "T1w_acpc_dc.nii.gz"),
+        t1_brain=join(dir_T1w, "T1w_acpc_dc_restore_brain.nii.gz"),
         epi=rules.mask_out_data.output.nodif,
     output:
         mat=join(outdir_T1w, "nodif2T1w_initII.mat"),
@@ -1003,7 +989,7 @@ rule apply_warp1:
     input:
         epi=rules.mask_out_data.output.nodif,
         premat=rules.epi_reg_dof.output.init_mat,
-        t1=f_T1w,
+        t1=join(dir_T1w, "T1w_acpc_dc.nii.gz"),
     output:
         epi2t1=join(outdir_T1w, "nodif2T1w_init.nii.gz"),
         log=join(logdir, "apply_warp.done"),
@@ -1021,7 +1007,7 @@ rule apply_warp2:
     input:
         epi=rules.mask_out_data.output.nodif,
         premat=rules.epi_reg_dof.output.mat,
-        t1=f_T1w,
+        t1=join(dir_T1w, "T1w_acpc_dc.nii.gz"),
     output:
         epi2t1=join(outdir_T1w, "nodif2T1w_initII.nii.gz"),
         log=join(logdir, "apply_warp2.done"),
@@ -1037,7 +1023,7 @@ rule apply_warp2:
 
 rule remove_bias_field:
     input:
-        bias_field=f_BiasField,
+        bias_field=join(dir_T1w, "BiasField_acpc_dc.nii.gz"),
         reg_epi=rules.apply_warp2.output.epi2t1,
     output:
         reg_epi_restore=join(outdir_T1w, "nodif2T1w_restore_initII.nii.gz"),
@@ -1091,7 +1077,7 @@ rule tkregister2:
     input:
         reg=rules.bbregister.output.reg,
         mov=rules.remove_bias_field.output.reg_epi_restore,
-        targ=f_T1w,
+        targ=join(dir_T1w, "T1w_acpc_dc.nii.gz"),
     output:
         freesurfer_reg=join(outdir_T1w, "diff2str_fs.mat"),
         log=join(logdir, "tkregister2.done"),
@@ -1139,7 +1125,7 @@ rule apply_warp3:
     input:
         epi=rules.mask_out_data.output.nodif,
         premat=rules.get_transformation_matrices.output.diff2str,
-        t1=f_T1w,
+        t1=join(dir_T1w, "T1w_acpc_dc.nii.gz"),
     output:
         epi2t1=join(outdir_T1w, "nodif2T1w.nii.gz"),
         log=join(logdir, "apply_warp3.done"),
@@ -1155,7 +1141,7 @@ rule apply_warp3:
 rule remove_bias:
     input:
         epi2t1=rules.apply_warp3.output.epi2t1,
-        bias_field=f_BiasField,
+        bias_field=join(dir_T1w, "BiasField_acpc_dc.nii.gz"),
     output:
         epi2t1_restore=join(outdir_T1w, "nodif2T1w_restore.nii.gz"),
         log=join(logdir, "remove_bias.done"),
@@ -1170,7 +1156,7 @@ rule remove_bias:
 
 rule qc4:
     input:
-        t1_restore=f_T1w_restore,
+        t1_restore=join(dir_T1w, "T1w_acpc_dc_restore.nii.gz"),
         epi2t1=rules.apply_warp3.output.epi2t1,
     output:
         nii=join(outdir_T1w, "QC_nodif.nii.gz"),
@@ -1201,7 +1187,7 @@ rule diff_res_structural_space:
     """
     input:
         data=rules.mask_out_data.output.data_masked,
-        t1_restore=f_T1w_restore,
+        t1_restore=join(dir_T1w, "T1w_acpc_dc_restore.nii.gz"),
         epi2t1=rules.remove_bias.output.epi2t1_restore,
     output:
         t1_diffres=join(outdir_T1w, "T1w_acpc_dc_restore_diffRes.nii.gz"),
@@ -1247,7 +1233,7 @@ rule diff_res_structural_space:
 
 rule diff_res_mask:
     input:
-        fs_brain_mask=f_FreeSurferBrainMask,
+        fs_brain_mask=join(dir_T1w, "brainmask_fs.nii.gz"),
         diffres=rules.diff_res_structural_space.output.diffres,
     output:
         t1_dwi_mask=join(outdir_T1w, "nodif_brain_mask.nii.gz"),
@@ -1947,9 +1933,9 @@ rule mmp_centers:
         python -c '
 import numpy as np
 from nilearn.plotting import find_parcellation_cut_coords
-centers, labels = find_parcellation_cut_coords({input.parc}, background_label=0, return_label_names=True)
-np.savetxt(centers, {output.centers})
-np.savetxt(labels, {output.labels})
+centers, labels = find_parcellation_cut_coords("{input.parc}", background_label=0, return_label_names=True)
+np.savetxt("{output.centers}", centers)
+np.savetxt("{output.labels}", labels)
 '
         """
 
