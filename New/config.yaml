@@ -1,0 +1,26 @@
+freesurferhome: /Applications/freesurfer/7.2.0
+workingdir: /Volumes/bronkodata_work/HCP-D
+
+rawdir: /Volumes/bronkodata_work/HCP-D/imagingcollection01
+
+t1dir: /Volumes/bronkodata_work/HCP-D/fmriresults01
+freesurferdir: /Volumes/bronkodata_work/HCP-D/fmriresults01/{subid}/T1w
+
+outdir: /Volumes/bronkodata_work/hcpython/testsub
+logdir: /Volumes/bronkodata_work/hcpython/testsub/log
+benchmarkdir: /Volumes/bronkodata_work/hcpython/testsub/benchmarks
+
+nthreads: 8
+
+ntracks: 100000000
+b0maxbval: 50
+b0dist: 45
+
+PhaseEncodingDirections: ["AP", "PA"]
+PosPE: "PA"
+NegPE: "AP"
+ImagingSequences: ["dMRI_dir98", "dMRI_dir99"]
+
+containers:
+  mrtrix: docker://mrtrix3/mrtrix3
+  qunex: gitlab.qunex.yale.edu:5002/qunex/qunexcontainer:0.100.0
