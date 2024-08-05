@@ -1,0 +1,11 @@
+name: snake_env
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - snakemake
+  - pip
+  - nibabel
+  - nilearn
+  - pip:
+    - -e /data/gpfs-1/users/martinl_c/work/hcpython

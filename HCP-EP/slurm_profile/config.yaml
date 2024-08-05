@@ -1,0 +1,15 @@
+# slurm_profile/config.yaml
+
+executor: slurm
+jobs: 50
+latency-wait: 30
+use-singularity: true
+singularity-args: "--bind $HOME:$HOME --bind /data/cephfs-1/work/groups/ritter/users/martinl_c:/data/cephfs-1/work/groups/ritter/users/martinl_c --bind /data/cephfs-1/scratch/groups/ritter/users/martinl_c:/data/cephfs-1/scratch/groups/ritter/users/martinl_c --env FS_LICENSE=/data/cephfs-1/work/groups/ritter/users/martinl_c/license.txt"
+rerun-incomplete: true
+default-resources:
+  - runtime=60
+  - account=martinl_c
+  - mem_mb=16000
+  - cpus_per_task=4
+  - mem=32G
+  - partition=short
