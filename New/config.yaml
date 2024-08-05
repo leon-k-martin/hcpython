@@ -1,16 +1,19 @@
-freesurferhome: /Applications/freesurfer/7.2.0
-workingdir: /Volumes/bronkodata_work/HCP-D
+freesurferhome: /data/cephfs-1/work/groups/ritter/users/martinl_c/Software/freesurfer73
+workingdir: /data/cephfs-1/scratch/groups/ritter/users/martinl_c/HCP-D
 
-rawdir: /Volumes/bronkodata_work/HCP-D/imagingcollection01
 
-t1dir: /Volumes/bronkodata_work/HCP-D/fmriresults01
-freesurferdir: /Volumes/bronkodata_work/HCP-D/fmriresults01/{subid}/T1w
+rawdir: /data/cephfs-1/scratch/groups/ritter/users/martinl_c/HCP-D/imagingcollection01
 
-outdir: /Volumes/bronkodata_work/hcpython/testsub
-logdir: /Volumes/bronkodata_work/hcpython/testsub/log
-benchmarkdir: /Volumes/bronkodata_work/hcpython/testsub/benchmarks
 
-nthreads: 8
+t1dir: /data/cephfs-1/scratch/groups/ritter/users/martinl_c/HCP-D/fmriresults01
+
+freesurferdir: /data/cephfs-1/scratch/groups/ritter/users/martinl_c/HCP-D/fmriresults01/{subid}/T1w
+
+outdir: /data/cephfs-1/scratch/groups/ritter/users/martinl_c/hcpython/hpc
+logdir: /data/cephfs-1/scratch/groups/ritter/users/martinl_c/hcpython/hpc/log
+benchmarkdir: /data/cephfs-1/scratch/groups/ritter/users/martinl_c/hcpython/hpc/benchmarks
+
+nthreads: 64
 
 ntracks: 100000000
 b0maxbval: 50
@@ -23,4 +26,20 @@ ImagingSequences: ["dMRI_dir98", "dMRI_dir99"]
 
 containers:
   mrtrix: docker://mrtrix3/mrtrix3
-  qunex: gitlab.qunex.yale.edu:5002/qunex/qunexcontainer:0.100.0
+  qunex: /data/cephfs-1/work/groups/ritter/users/martinl_c/Software/containers/qunexcontainer/qunex_suite-0.100.0.sif
+  freesurfer: docker://freesurfer/freesurfer:7.4.1
+  fmriprep: docker://poldracklab/fmriprep:latest
+  workbench: docker://poldracklab/fmriprep:latest
+  connectome_workbench: docker://brainlife/connectome_workbench
+
+subids: [
+    "HCD0810035_V1_MR", "HCD1855365_V1_MR", "HCD0001305_V1_MR", "HCD0946868_V1_MR", "HCD1906457_V1_MR",
+    "HCD0041822_V1_MR", "HCD1017931_V1_MR", "HCD1994884_V1_MR", "HCD0125424_V1_MR", "HCD1342033_V1_MR",
+    "HCD2207840_V1_MR", "HCD0215829_V1_MR", "HCD1411632_V1_MR", "HCD2496570_V1_MR", "HCD0236130_V1_MR",
+    "HCD1456048_V1_MR", "HCD2500030_V1_MR", "HCD0236635_V1_MR", "HCD1575359_V1_MR", "HCD2704551_V1_MR",
+    "HCD0248440_V1_MR", "HCD1612844_V1_MR", "HCD2797584_V1_MR", "HCD0370639_V1_MR", "HCD1633751_V1_MR",
+    "HCD2810954_V1_MR", "HCD0383143_V1_MR", "HCD1686267_V1_MR", "HCD2812352_V1_MR", "HCD0403224_V1_MR",
+    "HCD1757062_V1_MR", "HCD2855875_V1_MR", "HCD0429343_V1_MR", "HCD1759571_V1_MR", "HCD2957277_V1_MR",
+    "HCD0461844_V1_MR", "HCD1761356_V1_MR", "HCD0486254_V1_MR", "HCD1762661_V1_MR",
+    "HCD1765970_V1_MR", "HCD0644044_V1_MR", "HCD1801140_V1_MR", "HCD0789272_V1_MR", "HCD1838567_V1_MR"
+]

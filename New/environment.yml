@@ -3,6 +3,7 @@ channels:
   - defaults
   - conda-forge
 dependencies:
+  - snakemake
   - pip
   - nibabel
   - nilearn
