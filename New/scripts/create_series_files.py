@@ -4,14 +4,18 @@ import os
 import argparse
 from hcpy.utils import get_pedir
 
-def create_series_file(input_imgs, output_pos_corr, output_neg_corr, output_pos, output_neg, output_done):
+
+def create_series_file(
+    input_imgs, output_pos_corr, output_neg_corr, output_pos, output_neg
+):
     pos_vols = []
     neg_vols = []
 
-    with open(output_pos_corr, "w") as pos_corr_file, \
-         open(output_neg_corr, "w") as neg_corr_file, \
-         open(output_pos, "w") as pos_file, \
-         open(output_neg, "w") as neg_file:
+    with open(output_pos_corr, "w") as pos_corr_file, open(
+        output_neg_corr, "w"
+    ) as neg_corr_file, open(output_pos, "w") as pos_file, open(
+        output_neg, "w"
+    ) as neg_file:
 
         for img in input_imgs.split(" "):
             volumes = nib.load(img).shape[3]
@@ -33,18 +37,42 @@ def create_series_file(input_imgs, output_pos_corr, output_neg_corr, output_pos,
             if vol_neg > 0:
                 neg_corr_file.write("{}\n".format(min_vol))
 
-    with open(output_done, 'w') as done_file:
-        done_file.write(str(date))
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Create series file from neuroimaging data.')
-    parser.add_argument('--input_imgs', type=str, required=True, help='Input image file paths separated by spaces')
-    parser.add_argument('--output_pos_corr', type=str, required=True, help='Output positive correlation file')
-    parser.add_argument('--output_neg_corr', type=str, required=True, help='Output negative correlation file')
-    parser.add_argument('--output_pos', type=str, required=True, help='Output positive file')
-    parser.add_argument('--output_neg', type=str, required=True, help='Output negative file')
-    parser.add_argument('--output_done', type=str, required=True, help='Output done file')
+    parser = argparse.ArgumentParser(
+        description="Create series file from neuroimaging data."
+    )
+    parser.add_argument(
+        "--input_imgs",
+        type=str,
+        required=True,
+        help="Input image file paths separated by spaces",
+    )
+    parser.add_argument(
+        "--output_pos_corr",
+        type=str,
+        required=True,
+        help="Output positive correlation file",
+    )
+    parser.add_argument(
+        "--output_neg_corr",
+        type=str,
+        required=True,
+        help="Output negative correlation file",
+    )
+    parser.add_argument(
+        "--output_pos", type=str, required=True, help="Output positive file"
+    )
+    parser.add_argument(
+        "--output_neg", type=str, required=True, help="Output negative file"
+    )
 
     args = parser.parse_args()
 
-    create_series_file(args.input_imgs, args.output_pos_corr, args.output_neg_corr, args.output_pos, args.output_neg, args.output_done)
+    create_series_file(
+        args.input_imgs,
+        args.output_pos_corr,
+        args.output_neg_corr,
+        args.output_pos,
+        args.output_neg,
+    )
