@@ -1,0 +1,32 @@
+freesurferhome: /data/cephfs-1/work/groups/ritter/users/martinl_c/Software/freesurfer73
+workingdir: /data/cephfs-1/scratch/groups/ritter/users/martinl_c/HCP-EP
+
+
+rawdir: /data/cephfs-1/scratch/groups/ritter/users/martinl_c/HCP-EP/imagingcollection01
+t1dir: /data/cephfs-1/scratch/groups/ritter/users/martinl_c/HCP-EP/fmriresults01
+freesurferdir: /data/cephfs-1/scratch/groups/ritter/users/martinl_c/HCP-EP/fmriresults01/{subid}/T1w
+
+outdir: /data/cephfs-1/scratch/groups/ritter/users/martinl_c/hcpython/HCP-EP
+logdir: /data/cephfs-1/scratch/groups/ritter/users/martinl_c/hcpython/HCP-EP/log
+benchmarkdir: /data/cephfs-1/scratch/groups/ritter/users/martinl_c/hcpython/HCP-EP/benchmarks
+
+nthreads: 64
+
+ntracks: 100000000
+b0maxbval: 50
+b0dist: 45
+
+PhaseEncodingDirections: ["AP", "PA"]
+PosPE: "PA"
+NegPE: "AP"
+ImagingSequences: ["dMRI_dir107", "dMRI_dir99"]
+
+containers:
+  mrtrix: docker://mrtrix3/mrtrix3
+  qunex: /data/cephfs-1/work/groups/ritter/users/martinl_c/Software/containers/qunexcontainer/qunex_suite-0.100.0.sif
+  freesurfer: docker://freesurfer/freesurfer:7.4.1
+  workbench: docker://poldracklab/fmriprep
+  connectome_workbench: docker://brainlife/connectome_workbench
+  
+
+subids: ['1089_01_MR', '2008_01_MR', '4057_01_MR', '4047_01_MR', '4064_01_MR', '1045_01_MR', '4071_01_MR', '2029_01_MR', '4069_01_MR']

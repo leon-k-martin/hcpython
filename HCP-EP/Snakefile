@@ -1746,10 +1746,9 @@ rule generate_fod:
             {input.response_gm} {output.fod_gm} \
             {input.response_csf} {output.fod_csf} \
             -mask {input.dwi_mask} \
-            -nthreads $(nproc --all) \
-            -force -info
+            -nthreads {threads} -force -info
 
-        mrconvert -coord 3 0 {output.fod_wm} - | mrcat {output.fod_csf} {output.fod_gm} - {output.vf} -force
+        mrconvert -coord 3 0 {output.fod_wm} - | mrcat {output.fod_csf} {output.fod_gm} - {output.vf}
         echo $(date) > {output.log}
         """
 

@@ -4,3 +4,5 @@
 Icon?
 hcpy.egg-info
 5ttgen-tmp-*
+**/.snakemake
+**/.config
